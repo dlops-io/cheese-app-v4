@@ -23,6 +23,12 @@ app.add_middleware(
 async def get_index():
     return {"message": "Welcome to AC215"}
 
+@app.get("/status")
+async def get_api_status():
+    return {
+        "version": "1.0"
+    }
+
 # Additional routers here
 app.include_router(newsletter.router, prefix="/newsletters")
 app.include_router(podcast.router, prefix="/podcasts")

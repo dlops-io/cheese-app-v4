@@ -56,6 +56,9 @@ const DataService = {
     GetChatMessageImage: function (model, image_path) {
         return BASE_API_URL + "/" + model + "/" + image_path;
     },
+    GetStatus: async function () {
+        return await api.get("/status/");
+    },
 }
 
 export default DataService;
