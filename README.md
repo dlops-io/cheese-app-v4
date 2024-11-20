@@ -140,14 +140,14 @@ We have a GitHub Action that will build and deploy a new version of the app when
 @app.get("/status")
 async def get_api_status():
     return {
-        "version": "2.1",
+        "version": "3.1",
         "tf_version": tf.__version__,
     }
 ```
 * Open the file `src` / `frontend-react` / `src` / `services` / `Common.js`
 * Update the version in line 2:
 ```
-export const APP_VERSION = 1.1;
+export const APP_VERSION = 2.1;
 ```
 
 To run the deploy app action, add the following to code commit comment:
