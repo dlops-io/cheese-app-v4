@@ -57,7 +57,7 @@ const DataService = {
         return BASE_API_URL + "/" + model + "/" + image_path;
     },
     GetStatus: async function () {
-        return await api.get("/status/");
+        return await api.get("/status");
     },
 }
 
