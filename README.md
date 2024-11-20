@@ -135,7 +135,7 @@ Continuous Integration and Continuous Delivery/Continuous Deployment (CI/CD) is 
 We have a GitHub Action that will build and deploy a new version of the app when a git commit has a comment `/run-deploy-app`
 
 * Open the file `src` / `api-service` / `api` / `service.py`
-* Update the version in line 90:
+* Update the version in line 29:
 ```
 @app.get("/status")
 async def get_api_status():
