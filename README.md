@@ -145,14 +145,15 @@ async def get_api_status():
     }
 ```
 * Open the file `src` / `frontend-react` / `src` / `services` / `Common.js`
-* Update the version in line 2:
+* Update the version in line 3:
 ```
 export const APP_VERSION = 2.1;
 ```
 
 To run the deploy app action, add the following to code commit comment:
-* Add `/deploy-app` to the commit message to re-deploy the frontend and backend (do this outside the container)
+**Do this outside the container**
 
+* Add `/deploy-app` to the commit message to re-deploy the frontend and backend 
 ### ML Component Changes
 
 We can make changes to ML code and commit to GitHub and invoke running ML Tasks in Vertex AI
