@@ -10,9 +10,13 @@ In this tutorial we will put all the components we built for our Cheese App toge
 * Frontend:  React Frontend for the cheese app.
 <img src="images/ci-cd.png"  width="800">
 
-## Prerequisites
-* Have Docker installed
-* Cloned this repository to your local machine
+
+<hr style="height:2px;border-width:0;color:gray;background-color:gray">
+
+NOTE: You can skip the following steps if you have already completed the previous tutorial and have a running Kubernetes cluster. 
+Instead you can start from the [View the App](#view-the-app-if-you-have-a-domain) section below.
+
+<hr style="height:2px;border-width:0;color:gray;background-color:gray">
 
 ## Setup Environments
 In this tutorial we will setup a container to manage:
