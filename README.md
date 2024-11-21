@@ -97,11 +97,24 @@ ansible-playbook deploy-k8s-cluster.yml -i inventory.yml --extra-vars cluster_st
 ```
 
 #### View the App (If you have a domain)
-* Copy the `nginx_ingress_ip` from the terminal from the create cluster command
-* Go to your domain provider and in the DNS settings create a mapping from domain name to the `nginx_ingress_ip`
-* Example: formaggio.me -> 34.148.61.120
-* App url: http://formaggio.me
+1. Get your ingress IP:
+   * Copy the `nginx_ingress_ip` value that was displayed in the terminal after running the cluster creation command or from GCP console -> Kubernetes > Gateways, Services & Ingress > INGRESS
 
+   * Example IP: `34.148.61.120`
+
+2. Configure your domain DNS settings:
+   * Go to your domain provider's website (e.g., GoDaddy, Namecheap, etc.)
+   * Find the DNS settings or DNS management section
+   * Add a new 'A Record' with:
+     - Host/Name: `@` (or leave blank, depending on provider)
+     - Points to/Value: Your `nginx_ingress_ip`
+     - TTL: 3600 (or default)
+
+3. Wait for DNS propagation (can take 5-30 minutes)
+
+4. Access your app:
+   * Go to: `http://your-domain.com`
+   * Example: `http://formaggio.me`
 
 #### View the App (If you do not have a domain)
 * Copy the `nginx_ingress_ip` from the terminal from the create cluster command
