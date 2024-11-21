@@ -36,6 +36,6 @@
       push: yes
       source: local
   - name: "Save docker tag"
-    shell: echo {{ tag.stdout}} > .docker-tag
-  - name: "Remove all unused containers"
-    shell: docker system prune -a
+    shell: echo {{ tag.stdout}} > .docker-tag-ml
+  # - name: "Remove all unused containers"
+  #   shell: docker system prune -a

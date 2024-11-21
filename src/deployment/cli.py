@@ -24,7 +24,7 @@ GCS_PACKAGE_URI = os.environ["GCS_PACKAGE_URI"]
 GCP_REGION = os.environ["GCP_REGION"]
 
 # Read the docker tag file
-with open(".docker-tag") as f:
+with open(".docker-tag-ml") as f:
     tag = f.read()
 
 tag = tag.strip()
