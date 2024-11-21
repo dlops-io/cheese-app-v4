@@ -103,7 +103,7 @@ ansible-playbook deploy-k8s-cluster.yml -i inventory.yml --extra-vars cluster_st
 * Copy the `nginx_ingress_ip` from the terminal from the create cluster command
 * Go to `http://<YOUR INGRESS IP>.sslip.io`
 
-* Example: http://34.148.61.120.sslip.io/
+* Example: http://35.231.159.32.sslip.io/
 
 
 ## Setup GitHub Action Workflow Credentials
@@ -141,7 +141,6 @@ We have a GitHub Action that will build and deploy a new version of the app when
 async def get_api_status():
     return {
         "version": "3.1",
-        "tf_version": tf.__version__,
     }
 ```
 * Open the file `src` / `frontend-react` / `src` / `services` / `Common.js`
