@@ -109,6 +109,7 @@ ansible-playbook deploy-k8s-cluster.yml -i inventory.yml --extra-vars cluster_st
 
 * Example: http://35.231.159.32.sslip.io/
 
+<hr style="height:4px;border-width:0;color:gray;background-color:gray">
 
 ## Setup GitHub Action Workflow Credentials
 
@@ -133,6 +134,9 @@ Continuous Integration and Continuous Delivery/Continuous Deployment (CI/CD) is 
 **Continuous Delivery (CD):** This is an extension of CI, focusing on automating the delivery of applications to various environments, like staging or testing, in a way that they can be released to production at any time. The emphasis is on ensuring that the software can be deployed to a production environment and is ready for release but does not necessarily release it to the end users automatically.
 
 **Continuous Deployment (CD):** This takes the automation a step further by automatically deploying code changes to production after they pass all the automated tests in the deployment pipeline. This approach allows for a rapid release cycle and is commonly used in scenarios where rapid deployment and iteration are essential.
+
+In this tutorial we only focus on Continuous Deployment. We will use GitHub Actions to deploy our app to Kubernetes. The CI part is not implemented in this tutorial. 
+
 
 ### Frontend & Backend Changes
 
@@ -162,8 +166,13 @@ className={`fixed w-full top-0 z-50 transition-all duration-300 ${isScrolled ? '
 
 To run the deploy app action, add the following to code commit comment:
 **Do this outside the container**
-
 * Add `/deploy-app` to the commit message to re-deploy the frontend and backend 
+
+```
+git commit -m "update frontend and backend version and header color /deploy-app"
+```
+
+
 ### ML Component Changes
 
 We can make changes to ML code and commit to GitHub and invoke running ML Tasks in Vertex AI
