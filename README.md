@@ -147,7 +147,7 @@ async def get_api_status():
 * Open the file `src` / `frontend-react` / `src` / `services` / `Common.js`
 * Update the version in line 3:
 ```
-export const APP_VERSION = 2.3;
+export const APP_VERSION = 2.4;
 ```
 
 To change the background color of the header in the frontend.
