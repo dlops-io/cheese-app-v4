@@ -182,12 +182,13 @@ To run the deploy app action, add the following to code commit comment:
 * Add `/deploy-app` to the commit message to re-deploy the frontend and backend 
 
 ```
+git add .
 git commit -m "update frontend and backend version and header color /deploy-app"
+git push
 ```
 
 
 ### ML Component Changes
-I am here with my students having fun with the cheese app.
 
 We can make changes to ML code and commit to GitHub and invoke running ML Tasks in Vertex AI
 

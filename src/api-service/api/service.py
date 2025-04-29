@@ -26,7 +26,7 @@ async def get_index():
 @app.get("/status")
 async def get_api_status():
     return {
-        "version": "2.0"
+        "version": "3.0"
     }
 
 # Additional routers here
