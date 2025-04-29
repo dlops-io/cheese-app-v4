@@ -187,7 +187,7 @@ git commit -m "update frontend and backend version and header color /deploy-app"
 
 
 ### ML Component Changes
-I am here with my students having fun with the cheese app.
+I am here with students and Karim is asking questions. 
 
 We can make changes to ML code and commit to GitHub and invoke running ML Tasks in Vertex AI
 
