@@ -85,6 +85,7 @@
       src: .docker-tag
       dest: .docker-tag
       mode: 0644
+      force: yes
     when: cluster_state == "present"
 
   - name: "Get docker tag"

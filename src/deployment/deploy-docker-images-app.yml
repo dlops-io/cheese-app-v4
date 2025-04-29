@@ -50,5 +50,17 @@
       source: local
   - name: "Save docker tag"
     shell: echo {{ tag.stdout}} > .docker-tag
+    
+  - name: "Current Directory"
+    shell: pwd
+
+  - name: "Get updated docker tag"
+    shell: "cat .docker-tag"
+    register: tag
+
+  - name: "Verify Docker tag"
+    debug:
+      var: tag
+
   - name: "Remove all unused containers"
     shell: docker system prune -a

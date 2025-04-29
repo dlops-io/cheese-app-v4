@@ -10,11 +10,15 @@
   - name: "Connect to cluster (update kubeconfig)"
     shell: "gcloud container clusters get-credentials {{ cluster_name }} --zone {{ gcp_zone }} --project {{ gcp_project }}"
   
+  - name: "Current Directory"
+    shell: pwd
+
   - name: "Copy docker tag file"
     copy:
       src: .docker-tag
       dest: .docker-tag
       mode: 0644
+      force: yes
 
   - name: "Get docker tag"
     shell: "cat .docker-tag"
