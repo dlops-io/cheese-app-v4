@@ -21,7 +21,7 @@ export function formatRelativeTime(epochTimestamp) {
 
     // Format relative time based on difference
     if (minutes < 1) {
-        return 'just now';
+        return 'just now, not before and not after';
     } else if (minutes < 60) {
         return `${minutes} ${minutes === 1 ? 'minute' : 'minutes'} ago`;
     } else if (hours < 24) {

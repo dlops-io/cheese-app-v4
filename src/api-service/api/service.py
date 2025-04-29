@@ -21,7 +21,7 @@ app.add_middleware(
 # Routes
 @app.get("/")
 async def get_index():
-    return {"message": "Welcome to AC215"}
+    return {"message": "Welcome to AC215/E115"}
 
 @app.get("/status")
 async def get_api_status():
