@@ -189,6 +189,7 @@ git push
 
 
 ### ML Component Changes
+I am here with 13 amazing students. Best E115 students ever. 
 
 We can make changes to ML code and commit to GitHub and invoke running ML Tasks in Vertex AI
 
