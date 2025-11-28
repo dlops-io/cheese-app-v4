@@ -21,7 +21,7 @@ Instead you can start from the [View the App](#view-the-app-if-you-have-a-domain
 ## Setup Environments
 In this tutorial we will setup a container to manage:
 - Building docker images.
-- Uploading Docker images ot GCR.
+- Uploading Docker images ot GAR.
 - Running ML jobs using Vertex AI pipelines.
 - Deploying app containers to Kubernetes clusters
 
@@ -67,13 +67,6 @@ Your folder structure should look like this:
    |-secrets
 ```
 
-### Replace GCP project id
-The following files will need to be modified to replace the GCP project `ac215-project` to your GCP project id.
-
-* inventory.yml
-* inventory-prod.yml
-* docker-shell.sh
-
 ## Ensure Kubernetes Cluster is Up
 
 We deployed our cheese app to a Kubernetes cluster in the previous tutorial. In order to perform Continuous Integration and Continuous Deployment we will assume the cluster already exists. If your cluster is not running, follow these steps to create the cluster.
@@ -83,17 +76,28 @@ We deployed our cheese app to a Kubernetes cluster in the previous tutorial. In 
 - Go into `docker-shell.sh` and change `GCP_PROJECT` to your project id
 - Run `sh docker-shell.sh`
 
-
-#### Build and Push Docker Containers to GCR (Google Container Registry)
-Run this step only if you did not build + push images to GCR in our last tutorial.
+#### Build and Push Docker Containers to GAR (Google Artifact Registry)
+Run this step only if you did not build + push images to GAR in our last tutorial.
+- cd into `deploy_images`
+- Select Stack
 ```
-ansible-playbook deploy-docker-images-app.yml -i inventory.yml
+pulumi stack select dev
+```
+
+```
+pulumi up --stack dev -y
 ```
 
 #### Create & Deploy Cluster
 Run this step if you do not have a Kubernetes cluster running.
+- cd into `deploy_k8s` from the `deployment` folder
+- Select Stack
 ```
-ansible-playbook deploy-k8s-cluster.yml -i inventory.yml --extra-vars cluster_state=present
+pulumi stack select dev
+```
+- To create a cluster and deploy all our container images run:
+```
+pulumi up --stack dev --refresh -y
 ```
 
 #### View the App (If you have a domain)
@@ -127,7 +131,7 @@ ansible-playbook deploy-k8s-cluster.yml -i inventory.yml --extra-vars cluster_st
 ## Setup GitHub Action Workflow Credentials
 
 In this step we need to setup credentials in GitHub so that we can perform the following functions in GCP:
-* Push docker images to GCR
+* Push docker images to GAR
 * Run Vertex AI pipeline jobs
 * Update kubernetes deployments 
 
