@@ -1,6 +1,6 @@
 //export const BASE_API_URL = process.env.REACT_APP_BASE_API_URL;
 export const BASE_API_URL = process.env.NEXT_PUBLIC_BASE_API_URL;
-export const APP_VERSION = 3.0;
+export const APP_VERSION = 1.0;
 export const MOCK_SERVICE = true;
 
 export function epochToJsDate(ts) {
@@ -21,7 +21,7 @@ export function formatRelativeTime(epochTimestamp) {
 
     // Format relative time based on difference
     if (minutes < 1) {
-        return 'just now, not before and not after';
+        return 'just now';
     } else if (minutes < 60) {
         return `${minutes} ${minutes === 1 ? 'minute' : 'minutes'} ago`;
     } else if (hours < 24) {
