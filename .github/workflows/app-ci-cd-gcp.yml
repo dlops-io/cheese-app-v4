@@ -52,4 +52,4 @@ jobs:
             -e GCP_ZONE=us-central1-a \
             -e GCP_REGION=us-central1 \
             -e PULUMI_BUCKET=gs://ac215-project-pulumi-state-bucket \
-            cheese-app-deployment sh deploy-k8s-update.sh
+            cheese-app-deployment deploy-k8s-update.sh
