@@ -25,5 +25,5 @@ if [[ -z ${args} ]];
 then
     exec /bin/bash
 else
-  /bin/bash $args
+  uv run $args
 fi
