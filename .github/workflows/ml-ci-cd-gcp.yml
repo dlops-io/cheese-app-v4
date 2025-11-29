@@ -51,6 +51,7 @@ jobs:
             -e GCS_SERVICE_ACCOUNT=ml-workflow@ac215-project.iam.gserviceaccount.com \
             -e GCP_REGION=us-central1 \
             -e GCS_PACKAGE_URI=gs://cheese-app-trainer-code \
+            -e PULUMI_BUCKET=ac215-project-pulumi-state-bucket \
             cheese-app-workflow python cli.py --data_collector
       - name: Run Data Processor
         if: contains(github.event.head_commit.message, '/run-data-processor')
@@ -70,6 +71,7 @@ jobs:
             -e GCS_SERVICE_ACCOUNT=ml-workflow@ac215-project.iam.gserviceaccount.com \
             -e GCP_REGION=us-central1 \
             -e GCS_PACKAGE_URI=gs://cheese-app-trainer-code \
+            -e PULUMI_BUCKET=ac215-project-pulumi-state-bucket \
             cheese-app-workflow sh run-data-processor.sh
       - name: Run ML Pipeline
         if: contains(github.event.head_commit.message, '/run-ml-pipeline')
@@ -89,5 +91,6 @@ jobs:
             -e GCS_SERVICE_ACCOUNT=ml-workflow@ac215-project.iam.gserviceaccount.com \
             -e GCP_REGION=us-central1 \
             -e GCS_PACKAGE_URI=gs://cheese-app-trainer-code \
+            -e PULUMI_BUCKET=ac215-project-pulumi-state-bucket \
             cheese-app-workflow sh run-ml-pipeline.sh
       - run: echo "Job's status is ${{ job.status }}."
