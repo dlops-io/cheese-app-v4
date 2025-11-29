@@ -69,5 +69,7 @@ COPY --chown=app:app pyproject.toml uv.lock* ./
 # Install Python dependencies
 RUN uv sync --frozen
 
+ADD --chown=app:app . /app
+
 # Start a new shell to use the installed SDK
 ENTRYPOINT ["/bin/bash","docker-entrypoint.sh"]
