@@ -1,3 +1,8 @@
-rm .docker-tag
-ansible-playbook deploy-docker-images-app.yml -i inventory.yml
-ansible-playbook update-k8s-cluster.yml -i inventory-prod.yml
+cd deploy_images
+pulumi stack select dev
+pulumi up --stack dev -y
+
+cd ..
+cd deploy_k8s
+pulumi stack select dev
+pulumi up --stack dev -y
