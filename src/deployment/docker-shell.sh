@@ -13,6 +13,9 @@ export GCP_REGION="us-central1"
 export GCP_ZONE="us-central1-a"
 export GOOGLE_APPLICATION_CREDENTIALS=/secrets/deployment.json
 export PULUMI_BUCKET="gs://$GCP_PROJECT-pulumi-state-bucket"
+export GCS_BUCKET_NAME="cheese-app-ml-workflow-demo"
+export GCS_SERVICE_ACCOUNT="ml-workflow@ac215-project.iam.gserviceaccount.com"
+export GCS_PACKAGE_URI="gs://cheese-app-trainer-code"
 
 # Create local Pulumi plugins directory if it doesn't exist
 mkdir -p $BASE_DIR/pulumi-plugins
@@ -39,11 +42,16 @@ else
     -v "$BASE_DIR/../api-service":/api-service \
     -v "$BASE_DIR/../frontend-react":/frontend-react \
     -v "$BASE_DIR/../vector-db":/vector-db \
+    -v "$BASE_DIR/../data-collector":/data-collector \
+    -v "$BASE_DIR/../data-processor":/data-processor \
     -e GOOGLE_APPLICATION_CREDENTIALS=$GOOGLE_APPLICATION_CREDENTIALS \
     -e USE_GKE_GCLOUD_AUTH_PLUGIN=True \
     -e GCP_PROJECT=$GCP_PROJECT \
     -e GCP_REGION=$GCP_REGION \
     -e GCP_ZONE=$GCP_ZONE \
     -e PULUMI_BUCKET=$PULUMI_BUCKET \
+    -e GCS_BUCKET_NAME=$GCS_BUCKET_NAME \
+    -e GCS_SERVICE_ACCOUNT=$GCS_SERVICE_ACCOUNT \
+    -e GCS_PACKAGE_URI=$GCS_PACKAGE_URI \
     $IMAGE_NAME
 fi

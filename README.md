@@ -165,13 +165,13 @@ We have a GitHub Action that will build and deploy a new version of the app when
 @app.get("/status")
 async def get_api_status():
     return {
-        "version": "3.1",
+        "version": "2.0",
     }
 ```
 * Open the file `src` / `frontend-react` / `src` / `services` / `Common.js`
 * Update the version in line 3:
 ```
-export const APP_VERSION = 2.5;
+export const APP_VERSION = 2.2;
 ```
 
 To change the background color of the header in the frontend.

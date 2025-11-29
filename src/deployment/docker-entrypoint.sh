@@ -5,6 +5,9 @@ echo "Architecture: $(uname -m)"
 echo "Environment ready! Virtual environment activated."
 echo "Python version: $(python --version)"
 echo "UV version: $(uv --version)"
+# Activate virtual environment
+echo "Activating virtual environment..."
+source /home/app/.venv/bin/activate
 
 # Authenticate gcloud using service account
 gcloud auth activate-service-account --key-file $GOOGLE_APPLICATION_CREDENTIALS
@@ -27,4 +30,4 @@ echo "Available Pulumi stacks in GCS:"
 gsutil ls $PULUMI_BUCKET/.pulumi/stacks/  || echo "No stacks found."
 
 # Run Bash for interactive mode
-/bin/bash
+exec /bin/bash

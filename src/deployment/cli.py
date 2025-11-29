@@ -31,6 +31,7 @@ tag = tag.strip()
 
 print("Tag>>", tag, "<<")
 
+# us-docker.pkg.dev/ac215-project/cheese-app-repository/cheese-app-data-processor
 DATA_COLLECTOR_IMAGE = f"gcr.io/{GCP_PROJECT}/cheese-app-data-collector:{tag}"
 DATA_PROCESSOR_IMAGE = f"gcr.io/{GCP_PROJECT}/cheese-app-data-processor:{tag}"
 
@@ -161,6 +162,7 @@ def model_training():
 
 def model_deploy():
     print("model_deploy()")
+
     # Define a Pipeline
     @dsl.pipeline
     def model_deploy_pipeline():
@@ -169,9 +171,7 @@ def model_deploy():
         )
 
     # Build yaml file for pipeline
-    compiler.Compiler().compile(
-        model_deploy_pipeline, package_path="model_deploy.yaml"
-    )
+    compiler.Compiler().compile(model_deploy_pipeline, package_path="model_deploy.yaml")
 
     # Submit job to Vertex AI
     aip.init(project=GCP_PROJECT, staging_bucket=BUCKET_URI)
@@ -190,6 +190,7 @@ def model_deploy():
 
 def pipeline():
     print("pipeline()")
+
     # Define a Container Component for data collector
     @dsl.container_component
     def data_collector():
