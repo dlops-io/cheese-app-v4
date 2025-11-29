@@ -38,6 +38,8 @@ jobs:
           docker run --rm --name cheese-app-deployment \
             -v /var/run/docker.sock:/var/run/docker.sock \
             -v $HOME/.ssh:/home/app/.ssh \
+            -v "${{ github.workspace }}/src/deployment/docker_config.json":/root/.docker/config.json \
+            -v "${{ github.workspace }}/src/deployment/pulumi-plugins":/root/.pulumi/plugins \
             -v ${{ github.workspace }}/src/frontend-react:/frontend-react \
             -v ${{ github.workspace }}/src/api-service:/api-service \
             -v ${{ github.workspace }}/src/data-collector:/data-collector \
@@ -48,4 +50,5 @@ jobs:
             -e USE_GKE_GCLOUD_AUTH_PLUGIN=True \
             -e GCP_PROJECT=ac215-project \
             -e GCP_ZONE=us-central1-a \
+            -e PULUMI_BUCKET=gs://ac215-project-pulumi-state-bucket \
             cheese-app-deployment sh deploy-k8s-update.sh
