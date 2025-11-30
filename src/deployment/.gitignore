@@ -10,6 +10,8 @@ __pycache__/
 *.py[cod]
 *$py.class
 
+/deploy_k8s/__pycache__/*
+
 # C extensions
 *.so
 
