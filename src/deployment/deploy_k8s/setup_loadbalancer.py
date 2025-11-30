@@ -5,7 +5,7 @@ import pulumi_kubernetes as k8s
 
 
 def setup_loadbalancer(
-    namespace, k8s_provider, api_service, frontend_service, app_name
+    namespace, k8s_provider, api_service, frontend_service, app_name, domain
 ):
     # Nginx Ingress Controller using Helm and Create Ingress Resource
     nginx_helm = k8s.helm.v3.Release(
@@ -57,8 +57,10 @@ def setup_loadbalancer(
         opts=pulumi.ResourceOptions(provider=k8s_provider, depends_on=[nginx_helm]),
     )
     ip_address = nginx_service.status.load_balancer.ingress[0].ip
-    host = ip_address.apply(lambda ip: f"{ip}.sslip.io")
-    # host = "formaggio.dlops.io"
+    if domain:
+        host = ip_address.apply(lambda ip: domain)
+    else:
+        host = ip_address.apply(lambda ip: f"{ip}.sslip.io")
 
     ingress = k8s.networking.v1.Ingress(
         f"{app_name}-ingress",

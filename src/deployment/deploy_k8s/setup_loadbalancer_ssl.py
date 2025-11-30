@@ -5,7 +5,7 @@ import pulumi_kubernetes as k8s
 
 
 def setup_loadbalancer_ssl(
-    namespace, k8s_provider, api_service, frontend_service, app_name
+    namespace, k8s_provider, api_service, frontend_service, app_name, domain
 ):
 
     # Get a global ip address
@@ -15,7 +15,10 @@ def setup_loadbalancer_ssl(
         address_type="EXTERNAL",
         ip_version="IPV4",
     )
-    host = ip_address.address.apply(lambda ip: f"{ip}.sslip.io")
+    if domain:
+        host = ip_address.apply(lambda ip: domain)
+    else:
+        host = ip_address.apply(lambda ip: f"{ip}.sslip.io")
 
     # Create Certificate
     managed_cert = k8s.apiextensions.CustomResource(
