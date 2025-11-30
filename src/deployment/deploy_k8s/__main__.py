@@ -14,7 +14,11 @@ gcp_config = pulumi.Config("gcp")
 project = gcp_config.get("project")
 region = "us-central1"
 app_name = "cheese-app"
-setupSSL = False
+deploy_k8s = pulumi.Config("deploy-k8s")
+setupSSL = deploy_k8s.get_bool("setupSSL") or False
+domain = deploy_k8s.get("domain")
+print("setupSSL:", setupSSL)
+print("domain:", domain)
 
 # Create the required network setups
 network, subnet, router, nat = create_network(region, app_name)
@@ -32,12 +36,14 @@ frontend_service, api_service = setup_containers(
 # Setup Load Balancer
 if setupSSL:
     ip_address, ingress, host = setup_loadbalancer_ssl(
-        namespace, k8s_provider, api_service, frontend_service, app_name
+        namespace, k8s_provider, api_service, frontend_service, app_name, domain
     )
+    app_url = host.apply(lambda dmn: f"https://{dmn}")
 else:
     ip_address, ingress, host = setup_loadbalancer(
-        namespace, k8s_provider, api_service, frontend_service, app_name
+        namespace, k8s_provider, api_service, frontend_service, app_name, domain
     )
+    app_url = host.apply(lambda dmn: f"http://{dmn}")
 
 # Export values
 pulumi.export("cluster_name", cluster.name)
@@ -46,4 +52,4 @@ pulumi.export("kubeconfig", k8s_provider.kubeconfig)
 pulumi.export("namespace", namespace.metadata.name)
 pulumi.export("ingress_name", ingress.metadata.name)
 pulumi.export("ip_address", ip_address)
-pulumi.export("app_url", host.apply(lambda domain: f"http://{domain}"))
+pulumi.export("app_url", app_url)

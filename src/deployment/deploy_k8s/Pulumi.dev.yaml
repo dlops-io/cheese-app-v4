@@ -4,5 +4,5 @@ config:
   security:ssh_user: sa_100110341521630214262
   security:gcp_service_account_email: deployment@ac215-project.iam.gserviceaccount.com
   security:gcp_ksa_service_account_email: gcp-service@ac215-project.iam.gserviceaccount.com
-  deploy-k8s:setupSSL: "false"
+  deploy-k8s:setupSSL: "true"
   deploy-k8s:domain: formaggio.dlops.io

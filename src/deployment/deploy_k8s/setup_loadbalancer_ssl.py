@@ -16,9 +16,9 @@ def setup_loadbalancer_ssl(
         ip_version="IPV4",
     )
     if domain:
-        host = ip_address.apply(lambda ip: domain)
+        host = ip_address.address.apply(lambda ip: domain)
     else:
-        host = ip_address.apply(lambda ip: f"{ip}.sslip.io")
+        host = ip_address.address.apply(lambda ip: f"{ip}.sslip.io")
 
     # Create Certificate
     managed_cert = k8s.apiextensions.CustomResource(
