@@ -5,3 +5,4 @@ config:
   security:gcp_service_account_email: deployment@ac215-project.iam.gserviceaccount.com
   security:gcp_ksa_service_account_email: gcp-service@ac215-project.iam.gserviceaccount.com
   deploy-k8s:setupSSL: "false"
+  deploy-k8s:domain: formaggio.dlops.io

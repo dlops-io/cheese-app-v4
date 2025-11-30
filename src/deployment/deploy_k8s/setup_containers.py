@@ -321,12 +321,39 @@ def setup_containers(project, namespace, k8s_provider, ksa_name, app_name):
         ),
     )
 
+    # api_backend_config BackendConfig for API service health checks
+    api_backend_config = k8s.apiextensions.CustomResource(
+        "api-backend-config",
+        api_version="cloud.google.com/v1",
+        kind="BackendConfig",
+        metadata={
+            "name": "api-backend-config",
+            "namespace": namespace.metadata.name,
+        },
+        spec={
+            "healthCheck": {
+                "checkIntervalSec": 10,
+                "timeoutSec": 5,
+                "healthyThreshold": 1,
+                "unhealthyThreshold": 3,
+                "type": "HTTP",
+                "requestPath": "/api-service/",
+                "port": 9000,
+            }
+        },
+        opts=ResourceOptions(provider=k8s_provider),
+    )
+
     # api_service Service
     api_service = k8s.core.v1.Service(
         "api-service",
         metadata=k8s.meta.v1.ObjectMetaArgs(
             name="api",
             namespace=namespace.metadata.name,
+            annotations={
+                "cloud.google.com/neg": '{"ingress": true}',
+                "cloud.google.com/backend-config": '{"default": "api-backend-config"}',
+            },
         ),
         spec=k8s.core.v1.ServiceSpecArgs(
             type="ClusterIP",  # Internal only
@@ -339,7 +366,9 @@ def setup_containers(project, namespace, k8s_provider, ksa_name, app_name):
             ],
             selector={"run": "api"},
         ),
-        opts=pulumi.ResourceOptions(provider=k8s_provider, depends_on=[api_deployment]),
+        opts=pulumi.ResourceOptions(
+            provider=k8s_provider, depends_on=[api_deployment, api_backend_config]
+        ),
     )
 
     return frontend_service, api_service

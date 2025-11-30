@@ -58,6 +58,7 @@ def setup_loadbalancer(
     )
     ip_address = nginx_service.status.load_balancer.ingress[0].ip
     host = ip_address.apply(lambda ip: f"{ip}.sslip.io")
+    # host = "formaggio.dlops.io"
 
     ingress = k8s.networking.v1.Ingress(
         f"{app_name}-ingress",

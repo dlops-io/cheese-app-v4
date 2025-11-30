@@ -33,14 +33,14 @@ def setup_loadbalancer_ssl(
     # Frontend Config
     frontend_config = k8s.apiextensions.CustomResource(
         "https-redirect",
-        api_version="networking.gke.io/v1",
+        api_version="networking.gke.io/v1beta1",
         kind="FrontendConfig",
         metadata={
             "name": "https-redirect",
             "namespace": namespace.metadata.name,
         },
         spec={"redirectToHttps": {"enabled": True}},
-        opts=ResourceOptions(provider=k8s_provider),
+        opts=ResourceOptions(provider=k8s_provider, depends_on=[managed_cert]),
     )
 
     # Loadbalancer and redirects to services
@@ -50,13 +50,13 @@ def setup_loadbalancer_ssl(
             name=f"{app_name}-ingress",
             namespace=namespace.metadata.name,
             annotations={
+                "kubernetes.io/ingress.class": "gce",
                 "kubernetes.io/ingress.global-static-ip-name": ip_address.name,
                 "networking.gke.io/managed-certificates": "managed-certificates",
-                "networking.gke.io/frontend-config": "https-redirect",
+                "networking.gke.io/v1beta1.frontend-config": "https-redirect",
             },
         ),
         spec=k8s.networking.v1.IngressSpecArgs(
-            ingress_class_name="gce",  # Use GCE Ingress Controller
             rules=[
                 k8s.networking.v1.IngressRuleArgs(
                     host=host,
@@ -64,7 +64,7 @@ def setup_loadbalancer_ssl(
                         paths=[
                             # API service
                             k8s.networking.v1.HTTPIngressPathArgs(
-                                path="/api-service/",
+                                path="/api-service",
                                 path_type="Prefix",
                                 backend=k8s.networking.v1.IngressBackendArgs(
                                     service=k8s.networking.v1.IngressServiceBackendArgs(

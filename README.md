@@ -21,7 +21,7 @@ Instead you can start from the [View the App](#view-the-app-if-you-have-a-domain
 ## Setup Environments
 In this tutorial we will setup a container to manage:
 - Building docker images.
-- Uploading Docker images ot GAR.
+- Uploading Docker images ot Google Artifact Registry.
 - Running ML jobs using Vertex AI pipelines.
 - Deploying app containers to Kubernetes clusters
 
@@ -34,7 +34,7 @@ Search for each of these in the GCP search bar and click enable to enable these 
 * Compute Engine API
 * Service Usage API
 * Cloud Resource Manager API
-* Google Container Registry API
+* Google Artifact Registry API
 * Kubernetes Engine API
 
 ### Setup GCP Service Account for deployment
@@ -64,6 +64,8 @@ Your folder structure should look like this:
         |---api-service
         |---frontend-react
         |---deployment
+        |---vector-db
+        |---workflow
    |-secrets
 ```
 
@@ -76,8 +78,8 @@ We deployed our cheese app to a Kubernetes cluster in the previous tutorial. In 
 - Go into `docker-shell.sh` and change `GCP_PROJECT` to your project id
 - Run `sh docker-shell.sh`
 
-#### Build and Push Docker Containers to GAR (Google Artifact Registry)
-Run this step only if you did not build + push images to GAR in our last tutorial.
+#### Build and Push Docker Containers to Google Artifact Registry
+Run this step only if you did not build + push images to Google Artifact Registry in our last tutorial.
 - cd into `deploy_images`
 - Select Stack
 ```
@@ -131,7 +133,7 @@ pulumi up --stack dev --refresh -y
 ## Setup GitHub Action Workflow Credentials
 
 In this step we need to setup credentials in GitHub so that we can perform the following functions in GCP:
-* Push docker images to GAR
+* Push docker images to Google Artifact Registry
 * Run Vertex AI pipeline jobs
 * Update kubernetes deployments 
 
