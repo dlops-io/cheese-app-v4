@@ -38,7 +38,7 @@ export default function Header() {
     };
 
     return (
-        <header className={`fixed w-full top-0 z-50 transition-all duration-300 ${isScrolled ? 'bg-sky-700' : 'bg-transparent'
+        <header className={`fixed w-full top-0 z-50 transition-all duration-300 ${isScrolled ? 'bg-sky-800' : 'bg-transparent'
             }`}>
             <div className="container mx-auto px-4">
                 <div className="flex items-center justify-between h-16">
