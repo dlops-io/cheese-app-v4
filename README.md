@@ -79,7 +79,7 @@ We deployed our cheese app to a Kubernetes cluster in the previous tutorial. In 
 - Run `sh docker-shell.sh`
 
 #### Build and Push Docker Containers to Google Artifact Registry
-Run this step only if you did not build + push images to Google Artifact Registry in our last tutorial.
+Inside the container, run this step only if you did not build + push images to Google Artifact Registry in our last tutorial.
 - cd into `deploy_images`
 - Select Stack
 ```
@@ -202,3 +202,6 @@ To run Vertex AI Pipelines on code commits, add the following to code commit com
 * Add `/run-ml-pipeline` to the commit message to run the entire Vertex AI ML pipeline
 * Add `/run-data-collector` to the commit message to run the data collector ML pipeline
 * Add `/run-data-processor` to the commit message to run the data processor ML pipeline
+
+
+TESTING 
