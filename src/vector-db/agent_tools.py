@@ -1,5 +1,3 @@
-import json
-from google import genai
 from google.genai import types
 
 # import vertexai
@@ -43,9 +41,7 @@ def get_book_by_author(author, search_content, collection, embed_func):
     query_embedding = embed_func(search_content)
 
     # Query based on embedding value
-    results = collection.query(
-        query_embeddings=[query_embedding], n_results=10, where={"author": author}
-    )
+    results = collection.query(query_embeddings=[query_embedding], n_results=10, where={"author": author})
     return "\n".join(results["documents"][0])
 
 

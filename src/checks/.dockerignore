@@ -1,0 +1,4 @@
+# Only the hook scripts go into the image
+*
+!Dockerfile
+!hooks

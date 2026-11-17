@@ -1,0 +1,138 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 1000 560" width="1000" height="560" font-family="-apple-system, BlinkMacSystemFont, 'Segoe UI', Helvetica, Arial, sans-serif">
+  <title>Cheese App CI/CD</title>
+  <desc>Every git push runs CI on GitHub Actions: tests, lint and image builds. When CI passes and the commit message says /deploy-app, the Deploy app workflow pushes the images whose code changed to Artifact Registry and rolls them out to the GKE cluster, a pod at a time. When it says /run-ml-pipeline, the ML pipeline workflow runs the collect, process and train steps on Vertex AI Pipelines, which write the new model to the ML bucket, then restarts the API's pods, which load models/latest.</desc>
+  <defs>
+    <marker id="arrow" viewBox="0 0 10 10" refX="9" refY="5" markerWidth="7" markerHeight="7" orient="auto-start-reverse">
+      <path d="M0 0 L10 5 L0 10 z" fill="#4b5563"/>
+    </marker>
+    <filter id="shadow" x="-10%" y="-10%" width="120%" height="130%">
+      <feDropShadow dx="0" dy="2" stdDeviation="3" flood-color="#0f172a" flood-opacity="0.08"/>
+    </filter>
+    <style>
+      .title { font-size: 17px; font-weight: 700; fill: #1f2937; }
+      .sub { font-size: 13px; fill: #6b7280; }
+      .badge { font-size: 12px; font-weight: 700; fill: #ffffff; }
+      .label { font-size: 13px; fill: #374151; }
+      .group { font-size: 13px; font-weight: 700; }
+      .node { fill: #ffffff; stroke: #d6dbe1; stroke-width: 1.2; }
+      .line { fill: none; stroke: #4b5563; stroke-width: 1.8; }
+      .once { fill: none; stroke: #4b5563; stroke-width: 1.8; stroke-dasharray: 6 5; }
+    </style>
+  </defs>
+
+  <!-- The card, so the picture reads the same on a light or a dark page -->
+  <rect x="1" y="1" width="998" height="558" rx="18" fill="#ffffff" stroke="#e5e7eb"/>
+
+  <!-- GitHub Actions -->
+  <rect x="212" y="20" width="260" height="520" rx="16" fill="#f6f8fa" stroke="#c4c9d0" stroke-width="1.5" stroke-dasharray="7 5"/>
+  <text x="232" y="46" class="group" fill="#24292f">GitHub Actions</text>
+
+  <!-- Google Cloud -->
+  <rect x="492" y="200" width="492" height="340" rx="16" fill="#f8f9fa" stroke="#c4c9d0" stroke-width="1.5" stroke-dasharray="7 5"/>
+  <text x="512" y="226" class="group" fill="#4b5563">Google Cloud</text>
+  <text x="24" y="202" class="sub">/deploy-app or</text>
+  <text x="24" y="220" class="sub">/run-ml-pipeline in</text>
+  <text x="24" y="238" class="sub">the commit message</text>
+  <text x="244" y="350" class="sub">deploy-app.sh, in the</text>
+  <text x="244" y="368" class="sub">deployment container</text>
+  <text x="244" y="500" class="sub">run-ml-pipeline.sh, then</text>
+  <text x="244" y="518" class="sub">it restarts the API's pods</text>
+  <text x="512" y="500" class="sub">collect, process, train:</text>
+  <text x="512" y="518" class="sub">each step one of our images</text>
+  <text x="764" y="500" class="sub">the photos, and every</text>
+  <text x="764" y="518" class="sub">model trained</text>
+
+  <!-- Arrows, drawn first so the boxes sit on top -->
+  <path class="line" d="M194 145 H242" marker-end="url(#arrow)"/>
+
+  <path class="line" d="M344 180 V258" marker-end="url(#arrow)"/>
+  <text x="354" y="224" class="label">if CI passes</text>
+  <path class="line" d="M244 163 H228 V445 H242" marker-end="url(#arrow)"/>
+
+  <path class="line" d="M444 295 H510" marker-end="url(#arrow)"/>
+  <text x="486" y="285" class="label" text-anchor="end">pushes</text>
+  <path class="line" d="M712 295 H762" marker-end="url(#arrow)"/>
+  <text x="738" y="285" class="label" text-anchor="middle">pulls</text>
+  <path class="line" d="M404 260 V240 H864 V258" marker-end="url(#arrow)"/>
+  <text x="856" y="234" class="label" text-anchor="end">rolls out, a pod at a time</text>
+
+  <path class="line" d="M444 445 H510" marker-end="url(#arrow)"/>
+  <text x="486" y="435" class="label" text-anchor="end">runs</text>
+  <path class="line" d="M712 445 H762" marker-end="url(#arrow)"/>
+  <text x="738" y="435" class="label" text-anchor="middle">writes</text>
+  <path class="once" d="M864 410 V332" marker-end="url(#arrow)"/>
+  <text x="854" y="370" class="label" text-anchor="end">the API loads</text>
+  <text x="854" y="387" class="label" text-anchor="end">models/latest</text>
+
+  <!-- Your commit -->
+  <g filter="url(#shadow)">
+    <rect x="24" y="110" width="170" height="70" rx="12" class="node"/>
+  </g>
+  <circle cx="54" cy="145" r="17" fill="#f05133"/>
+  <text x="54" y="149" class="badge" text-anchor="middle" font-size="11">Git</text>
+  <text x="82" y="141" class="title">git push</text>
+  <text x="82" y="160" class="sub">to main</text>
+
+  <!-- CI, on every push -->
+  <g filter="url(#shadow)">
+    <rect x="244" y="110" width="200" height="70" rx="12" class="node"/>
+  </g>
+  <circle cx="274" cy="145" r="17" fill="#10a37f"/>
+  <text x="274" y="149.5" class="badge" text-anchor="middle">CI</text>
+  <text x="302" y="141" class="title">CI</text>
+  <text x="302" y="160" class="sub">tests · lint · builds</text>
+
+  <!-- Deploy app -->
+  <g filter="url(#shadow)">
+    <rect x="244" y="260" width="200" height="70" rx="12" class="node"/>
+  </g>
+  <circle cx="274" cy="295" r="17" fill="#3b82f6"/>
+  <text x="274" y="299.5" class="badge" text-anchor="middle">CD</text>
+  <text x="302" y="291" class="title">Deploy app</text>
+  <text x="302" y="310" class="sub">/deploy-app</text>
+
+  <!-- ML pipeline -->
+  <g filter="url(#shadow)">
+    <rect x="244" y="410" width="200" height="70" rx="12" class="node"/>
+  </g>
+  <circle cx="274" cy="445" r="17" fill="#7c3aed"/>
+  <text x="274" y="449.5" class="badge" text-anchor="middle">ML</text>
+  <text x="302" y="441" class="title">ML pipeline</text>
+  <text x="302" y="460" class="sub">/run-ml-pipeline</text>
+
+  <!-- Artifact Registry -->
+  <g filter="url(#shadow)">
+    <rect x="512" y="260" width="200" height="70" rx="12" class="node"/>
+  </g>
+  <circle cx="542" cy="295" r="17" fill="#db4437"/>
+  <text x="542" y="299.5" class="badge" text-anchor="middle">AR</text>
+  <text x="570" y="291" class="title" style="font-size: 14px">Artifact Registry</text>
+  <text x="570" y="310" class="sub">the images</text>
+
+  <!-- The cluster -->
+  <g filter="url(#shadow)">
+    <rect x="764" y="260" width="200" height="70" rx="12" class="node"/>
+  </g>
+  <circle cx="794" cy="295" r="17" fill="#326ce5"/>
+  <text x="794" y="299" class="badge" text-anchor="middle" font-size="10">GKE</text>
+  <text x="822" y="291" class="title">GKE cluster</text>
+  <text x="822" y="310" class="sub">the Cheese App</text>
+
+  <!-- Vertex AI Pipelines -->
+  <g filter="url(#shadow)">
+    <rect x="512" y="410" width="200" height="70" rx="12" class="node"/>
+  </g>
+  <circle cx="542" cy="445" r="17" fill="#4285f4"/>
+  <text x="542" y="449.5" class="badge" text-anchor="middle">AI</text>
+  <text x="570" y="441" class="title">Vertex AI</text>
+  <text x="570" y="460" class="sub">Pipelines</text>
+
+  <!-- The ML bucket -->
+  <g filter="url(#shadow)">
+    <rect x="764" y="410" width="200" height="70" rx="12" class="node"/>
+  </g>
+  <circle cx="794" cy="445" r="17" fill="#e8710a"/>
+  <text x="794" y="449" class="badge" text-anchor="middle" font-size="11">GCS</text>
+  <text x="822" y="441" class="title">ML bucket</text>
+  <text x="822" y="460" class="sub">models/latest</text>
+</svg>

@@ -1,0 +1,53 @@
+# Continuous deployment of the app: put /deploy-app in a commit message on main (or press Run workflow
+# under Actions), and once CI passes, the images whose code changed are built, pushed and rolled out to
+# the GKE cluster, a pod at a time. It runs ./scripts/deploy-app.sh in the deployment container: the
+# same command, in the same container, you would run on your laptop.
+#
+# Needs, under the repository's Settings > Secrets and variables > Actions:
+#   secret   GOOGLE_APPLICATION_CREDENTIALS   the contents of your deployment.json key
+#   variable GCP_PROJECT                      your project ID (GCP_REGION and GCP_ZONE are optional)
+name: Deploy app
+run-name: Deploy app (${{ github.event_name == 'workflow_dispatch' && 'by hand' || github.event.head_commit.message }})
+
+on:
+  push:
+    branches: [main]
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+jobs:
+  ci:
+    name: CI
+    if: github.event_name == 'workflow_dispatch' || contains(github.event.head_commit.message, '/deploy-app')
+    uses: ./.github/workflows/ci.yml
+
+  deploy:
+    name: Deploy to GKE
+    needs: ci
+    runs-on: ubuntu-latest
+    # One Google Cloud change at a time: this and the ML pipeline both update the deploy_images stack.
+    # On the job, not the workflow: pushes without /deploy-app never join the queue.
+    concurrency:
+      group: gcp-deploy
+      cancel-in-progress: false
+    timeout-minutes: 60
+    env:
+      GCP_PROJECT: ${{ vars.GCP_PROJECT }}
+      GCP_REGION: ${{ vars.GCP_REGION || 'us-central1' }}
+      GCP_ZONE: ${{ vars.GCP_ZONE || 'us-central1-a' }}
+    steps:
+      - uses: actions/checkout@v7
+      - name: Put the deployment key where the deployment container looks
+        env:
+          KEY: ${{ secrets.GOOGLE_APPLICATION_CREDENTIALS }}
+        run: |
+          if [[ -z "${GCP_PROJECT}" ]]; then echo "::error::Set the repository variable GCP_PROJECT"; exit 1; fi
+          if [[ -z "${KEY}" ]]; then echo "::error::Add the repository secret GOOGLE_APPLICATION_CREDENTIALS"; exit 1; fi
+          mkdir -p "${RUNNER_TEMP}/secrets"
+          (umask 077 && printf '%s' "${KEY}" >"${RUNNER_TEMP}/secrets/deployment.json")
+          echo "SECRETS_DIR=${RUNNER_TEMP}/secrets" >>"${GITHUB_ENV}"
+      - name: Build the images that changed and roll them out
+        working-directory: src/deployment
+        run: ./docker-shell.sh ./scripts/deploy-app.sh

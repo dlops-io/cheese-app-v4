@@ -1,0 +1,82 @@
+# The ML pipeline on Vertex AI, from a commit message on main (or Run workflow under Actions). Once CI
+# passes, it builds the ML images that changed and runs the steps asked for:
+#   /run-ml-pipeline       all three: collect photos, clean them, train the model
+#   /run-data-collector    collect only
+#   /run-data-processor    clean only
+#   /run-model-training    train only
+# After training it restarts the API's pods, so the app answers Identify with the new model. It runs
+# ./scripts/run-ml-pipeline.sh in the deployment container, with the same secret and variables as the
+# Deploy app workflow.
+name: ML pipeline
+run-name: ML pipeline (${{ github.event_name == 'workflow_dispatch' && inputs.steps || github.event.head_commit.message }})
+
+on:
+  push:
+    branches: [main]
+  workflow_dispatch:
+    inputs:
+      steps:
+        description: Steps to run
+        type: choice
+        options: ["collect process train", "collect", "process", "train", "process train"]
+        default: "collect process train"
+
+permissions:
+  contents: read
+
+jobs:
+  ci:
+    name: CI
+    if: github.event_name == 'workflow_dispatch' || contains(github.event.head_commit.message, '/run-')
+    uses: ./.github/workflows/ci.yml
+
+  pipeline:
+    name: Run on Vertex AI
+    needs: ci
+    runs-on: ubuntu-latest
+    # Shares the queue with Deploy app: both update the deploy_images stack
+    concurrency:
+      group: gcp-deploy
+      cancel-in-progress: false
+    timeout-minutes: 120
+    env:
+      GCP_PROJECT: ${{ vars.GCP_PROJECT }}
+      GCP_REGION: ${{ vars.GCP_REGION || 'us-central1' }}
+      GCP_ZONE: ${{ vars.GCP_ZONE || 'us-central1-a' }}
+    steps:
+      - uses: actions/checkout@v7
+      - name: Which steps
+        id: which
+        env:
+          # Text someone typed: read it from a variable, never paste it into the command itself
+          MESSAGE: ${{ github.event.head_commit.message }}
+          CHOSEN: ${{ inputs.steps }}
+        run: |
+          steps="${CHOSEN}"
+          if [[ -z "${steps}" ]]; then
+            if [[ "${MESSAGE}" == *"/run-ml-pipeline"* ]]; then steps="collect process train"; fi
+            if [[ "${MESSAGE}" == *"/run-data-collector"* ]]; then steps+=" collect"; fi
+            if [[ "${MESSAGE}" == *"/run-data-processor"* ]]; then steps+=" process"; fi
+            if [[ "${MESSAGE}" == *"/run-model-training"* ]]; then steps+=" train"; fi
+          fi
+          read -ra words <<<"${steps}" && steps="${words[*]}" # one space between steps
+          echo "Steps: ${steps:-none}"
+          echo "steps=${steps}" >>"${GITHUB_OUTPUT}"
+      - name: Put the deployment key where the deployment container looks
+        if: steps.which.outputs.steps != ''
+        env:
+          KEY: ${{ secrets.GOOGLE_APPLICATION_CREDENTIALS }}
+        run: |
+          if [[ -z "${GCP_PROJECT}" ]]; then echo "::error::Set the repository variable GCP_PROJECT"; exit 1; fi
+          if [[ -z "${KEY}" ]]; then echo "::error::Add the repository secret GOOGLE_APPLICATION_CREDENTIALS"; exit 1; fi
+          mkdir -p "${RUNNER_TEMP}/secrets"
+          (umask 077 && printf '%s' "${KEY}" >"${RUNNER_TEMP}/secrets/deployment.json")
+          echo "SECRETS_DIR=${RUNNER_TEMP}/secrets" >>"${GITHUB_ENV}"
+      - name: Build the ML images that changed and run the steps
+        if: steps.which.outputs.steps != ''
+        working-directory: src/deployment
+        env:
+          STEPS: ${{ steps.which.outputs.steps }}
+        run: |
+          read -ra steps <<<"${STEPS}"
+          ./docker-shell.sh ./scripts/run-ml-pipeline.sh "${steps[@]}"

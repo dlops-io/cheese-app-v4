@@ -1,27 +1,19 @@
 #!/bin/bash
-
-# exit immediately if a command exits with a non-zero status
+# shellcheck disable=SC2155  # export VAR=$(pwd) is this script's style
+# A shell in the data-collector container on your laptop, against your ML bucket, with the deployment key
+# The ML pipeline runs the same image on Vertex AI.
 set -e
 
-# Define some environment variables
-export IMAGE_NAME="cheese-app-data-collector"
-export BASE_DIR=$(pwd)
-export PERSISTENT_DIR=$(pwd)/../../../persistent-folder/
 export SECRETS_DIR=$(pwd)/../../../secrets/
-export GCP_PROJECT="ac215-project"
-export GCS_BUCKET_NAME="cheese-app-ml-workflow-demo"
+export GCP_PROJECT="ac215-project" # CHANGE TO YOUR PROJECT ID
+export ML_BUCKET="$GCP_PROJECT-cheese-app-ml"
+export IMAGE_NAME="cheese-app-data-collector"
 
-# Build the image based on the Dockerfile
-#docker build -t $IMAGE_NAME -f Dockerfile .
-# M1/2 chip macs use this line
-docker build -t $IMAGE_NAME --platform=linux/amd64 -f Dockerfile .
+docker build -t "$IMAGE_NAME" -f Dockerfile .
 
-# Run Container
-docker run --rm --name $IMAGE_NAME -ti \
--v "$BASE_DIR":/app \
--v "$SECRETS_DIR":/secrets \
--v "$PERSISTENT_DIR":/persistent \
--e GOOGLE_APPLICATION_CREDENTIALS=/secrets/ml-workflow.json \
--e GCP_PROJECT=$GCP_PROJECT \
--e GCS_BUCKET_NAME=$GCS_BUCKET_NAME \
-$IMAGE_NAME
+docker run --rm -ti --name "$IMAGE_NAME" \
+    -v "$SECRETS_DIR":/secrets:ro \
+    -e GOOGLE_APPLICATION_CREDENTIALS=/secrets/deployment.json \
+    -e GOOGLE_CLOUD_PROJECT="$GCP_PROJECT" \
+    -e ML_BUCKET="$ML_BUCKET" \
+    "$IMAGE_NAME" "$@"

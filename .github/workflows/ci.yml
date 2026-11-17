@@ -1,0 +1,70 @@
+# Continuous integration: on every push, check that the code still works. No secrets, no Google Cloud:
+# it runs the checks and tests and builds every image, and fails the push if any of them fails.
+# The deploy and ML workflows run it first, so only code that passes gets deployed.
+#
+# Everything runs in Docker, in the same containers you use on your laptop: the runner itself needs
+# only git, Docker and a shell (no Python, uv, Node or kubectl).
+name: CI
+
+on:
+  push:
+  workflow_dispatch:
+  workflow_call:
+
+permissions:
+  contents: read
+
+# A newer push to the same branch makes an older check pointless
+concurrency:
+  group: ${{ github.workflow }}-ci-${{ github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  checks:
+    name: Lint and format checks
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v7
+      # The git hook's checks (.pre-commit-config.yaml), on every file: they catch a commit made
+      # without the hook, or with git commit --no-verify
+      - name: Run the pre-commit checks on all files
+        run: src/checks/run.sh --all-files --show-diff-on-failure
+
+  api-service:
+    name: API tests
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v7
+      # Dockerfile.dev: the image docker-shell.sh gives you, with pytest
+      - name: Build the API's development image
+        working-directory: src/api-service
+        run: docker build -t cheese-app-api-service:test -f Dockerfile.dev .
+      - name: Run the tests in it
+        working-directory: src/api-service
+        run: docker run --rm -v "${PWD}:/app" --entrypoint pytest cheese-app-api-service:test -q
+
+  deployment:
+    name: Deployment checks
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v7
+      # Lints the scripts and Pulumi programs, renders the Kubernetes YAML, compiles the ML pipeline.
+      # No key: the container skips Google Cloud and Pulumi.
+      - name: Run scripts/check.sh in the deployment container
+        working-directory: src/deployment
+        run: |
+          mkdir -p "${RUNNER_TEMP}/no-secrets"
+          SECRETS_DIR="${RUNNER_TEMP}/no-secrets" ./docker-shell.sh ./scripts/check.sh
+
+  images:
+    name: Build ${{ matrix.service }}
+    runs-on: ubuntu-latest
+    strategy:
+      fail-fast: false
+      matrix:
+        service: [api-service, frontend-react, vector-db, data-collector, data-processor, model-training]
+    steps:
+      - uses: actions/checkout@v7
+      # The frontend's image runs `npm run build` as it builds
+      - name: Build the production image (not pushed)
+        run: docker build -t "cheese-app-${{ matrix.service }}:ci" "src/${{ matrix.service }}"
