@@ -1,208 +1,328 @@
 # Cheese App - Automation
 
-In this tutorial we will put all the components we built for our Cheese App together. We will then apply Continuous Integration and Continuous Deployment (CI/CD) methods to test, execute, monitor, deploy, and scale these components. All of these steps will be automated based on workflow using GitHub Actions. Here are the components we have built for our Cheese App:
+In `cheese-app-v3` we deployed the Cheese App to GKE from our laptop, one command at a time. In this
+tutorial GitHub does it for us, every time we push:
 
-* Data Collector: Scraps image from the internet and stores them into a `raw` folder.
-* Data Processor: Checks images for duplicates, validate image formats, converts images to TF Records
-* Model Training: Submits training jobs to Vertex AI to train models
-* Model Deploy: Updates trained models signature with preprocessing logic added to it. Upload model to Vertex AI Model Registry and Deploy model to Model Endpoints.
-* API Service: FastAPI service to expose APIs to the frontend.
-* Frontend:  React Frontend for the cheese app.
-<img src="images/ci-cd.png"  width="800">
+| Tutorial | What it shows |
+| --- | --- |
+| [Continuous integration](#tutorial-continuous-integration) | Every push is tested, linted and built, and a broken one is marked in red |
+| [Deploy the app with a commit](#tutorial-deploy-the-app-with-a-commit) | `/deploy-app` in a commit message ships the change to the cluster, a pod at a time |
+| [Train the model with a commit](#tutorial-train-the-model-with-a-commit) | `/run-ml-pipeline` collects photos, trains a new model on Vertex AI and puts it in the app |
 
+![CI/CD for the Cheese App: a git push runs CI on GitHub Actions. With /deploy-app, the Deploy app workflow pushes images to Artifact Registry and rolls them out to GKE. With /run-ml-pipeline, the ML pipeline workflow runs Vertex AI Pipelines, which write the model to the ML bucket, and the API loads it](images/ci-cd.svg)
 
-<hr style="height:2px;border-width:0;color:gray;background-color:gray">
+The app is `cheese-app-v3`'s, plus three containers that make the model the app's **Identify** mode
+uses:
 
-NOTE: You can skip the following steps if you have already completed the previous tutorial and have a running Kubernetes cluster. 
-Instead you can start from the [View the App](#view-the-app-if-you-have-a-domain) section below.
+| Folder | What it is | Where it runs |
+| --- | --- | --- |
+| `src/api-service/` | FastAPI: content, and chat with Gemini, the CNN and RAG | GKE |
+| `src/frontend-react/` | The page, served by nginx, which passes `/api` to the API | GKE |
+| `src/vector-db/` | Chroma, and the Job that loads the cheese books into it | GKE |
+| `src/data-collector/` | Searches the web for photos of each cheese | Vertex AI Pipelines |
+| `src/data-processor/` | Drops broken photos and near-duplicates, and makes the rest JPEGs | Vertex AI Pipelines |
+| `src/model-training/` | Fine-tunes MobileNetV2 on the photos and saves the model | Vertex AI Pipelines |
+| `src/deployment/` | The deployment container: Pulumi, the Kubernetes YAML and the scripts | Your laptop, and GitHub Actions |
+| `.github/workflows/` | The three workflows GitHub runs | GitHub Actions |
 
-<hr style="height:2px;border-width:0;color:gray;background-color:gray">
+## Prerequisites
+- The `cheese-app-v3` tutorials on Google Cloud, done: the Google Cloud setup, its service accounts
+  and the `deployment.json` key
+- A GitHub account, and the GitHub repository from the next section
+- A project with billing on. The cluster costs money every hour it runs, and each pipeline run costs a
+  little, so delete the cluster when you are done.
 
-## Setup Environments
-In this tutorial we will setup a container to manage:
-- Building docker images.
-- Uploading Docker images ot Google Artifact Registry.
-- Running ML jobs using Vertex AI pipelines.
-- Deploying app containers to Kubernetes clusters
+## Tutorial: Setup
+Do this once.
 
-### Clone the github repository
-- Clone repo from [here](https://github.com/dlops-io/cheese-app-v4)
-
-### API's to enable in GCP for Project
-Search for each of these in the GCP search bar and click enable to enable these API's
-* Vertex AI API
-* Compute Engine API
-* Service Usage API
-* Cloud Resource Manager API
-* Google Artifact Registry API
-* Kubernetes Engine API
-
-### Setup GCP Service Account for deployment
-- Here are the step to create a service account:
-- To setup a service account you will need to go to [GCP Console](https://console.cloud.google.com/home/dashboard), search for  "Service accounts" from the top search box. or go to: "IAM & Admins" > "Service accounts" from the top-left menu and create a new service account called "deployment". 
-- Give the following roles:
-- For `deployment`:
-    - Compute Admin
-    - Compute OS Login
-    - Container Registry Service Agent
-    - Kubernetes Engine Admin
-    - Service Account User
-    - Storage Admin
-    - Vertex AI Administrator
-- Then click done.
-- This will create a service account
-- On the right "Actions" column click the vertical ... and select "Create key". A prompt for Create private key for "deployment" will appear select "JSON" and click create. This will download a Private key json file to your computer. Copy this json file into the **secrets** folder.
-- Rename the json key file to `deployment.json`
-
-Your folder structure should look like this:
+### Your own copy of the repository
+GitHub runs the workflows in your repository, with your key, so you need your own copy:
+1. On [cheese-app-v4](https://github.com/dlops-io/cheese-app-v4), choose **Fork**.
+2. In your fork, open **Actions** and choose **I understand my workflows, go ahead and enable them**.
+   GitHub turns workflows off in a new fork.
+3. Clone your fork, next to the **secrets** folder from `cheese-app-v3`:
 ```
    |-cheese-app-v4
-      |-images
-      |-src
-        |---data-collector
-        |---data-processor
-        |---api-service
-        |---frontend-react
-        |---deployment
-        |---vector-db
-        |---workflow
+     |-.github
+       |---workflows
+     |-docs
+     |-images
+     |-src
+       |---api-service
+       |---data-collector
+       |---data-processor
+       |---deployment
+       |---frontend-react
+       |---model-training
+       |---vector-db
    |-secrets
+     |---deployment.json
+     |---ml-workflow.json     (for api-service and vector-db's own docker-shell.sh)
 ```
 
-## Ensure Kubernetes Cluster is Up
+### Service accounts
+These are `cheese-app-v3`'s two accounts, with one more role for `deployment`: it now also starts the
+ML pipeline on Vertex AI. In the console, go to **IAM & Admin > IAM**, edit each account and check its
+roles:
 
-We deployed our cheese app to a Kubernetes cluster in the previous tutorial. In order to perform Continuous Integration and Continuous Deployment we will assume the cluster already exists. If your cluster is not running, follow these steps to create the cluster.
+| Account | Roles | Used by |
+| --- | --- | --- |
+| `deployment` | Compute Admin, Artifact Registry Administrator, Kubernetes Engine Admin, Storage Admin, Service Account User, Service Account Admin, **Agent Platform User** | The deployment container, on your laptop and on GitHub |
+| `gcp-service` | Agent Platform User, Artifact Registry Reader | The API on GKE, and the pipeline's steps on Vertex AI |
 
-### Run `deployment` container
-- cd into `deployment`
-- Go into `docker-shell.sh` and change `GCP_PROJECT` to your project id
-- Run `sh docker-shell.sh`
+Agent Platform User is `roles/aiplatform.user`, called Vertex AI User before. Not **AI Platform Admin**:
+that is an older product's role, and with it Vertex AI answers 403.
 
-#### Build and Push Docker Containers to Google Artifact Registry
-Inside the container, run this step only if you did not build + push images to Google Artifact Registry in our last tutorial.
-- cd into `deploy_images`
-- Select Stack
-```
-pulumi stack select dev
-```
+### Set your project
+Replace `ac215-project` with your project ID:
+- At the top of `src/deployment/docker-shell.sh`
+- In `src/deployment/deploy_base/Pulumi.dev.yaml` (twice), `src/deployment/deploy_images/Pulumi.dev.yaml`
+  and `src/deployment/deploy_k8s/Pulumi.dev.yaml` (three times)
 
-```
-pulumi up --stack dev -y
-```
+Commit and push this change, so GitHub uses your project too.
 
-#### Create & Deploy Cluster
-Run this step if you do not have a Kubernetes cluster running.
-- cd into `deploy_k8s` from the `deployment` folder
-- Select Stack
-```
-pulumi stack select dev
-```
-- To create a cluster and deploy all our container images run:
-```
-pulumi up --stack dev --refresh -y
+### The cluster and the ML bucket
+The workflows deploy to the cluster from `cheese-app-v3`: the stacks have the same names, so they find
+it. In the deployment container:
+```bash
+cd src/deployment
 ```
 
-#### View the App (If you have a domain)
-1. Get your ingress IP:
-   * Copy the `nginx_ingress_ip` value that was displayed in the terminal after running the cluster creation command or from GCP console -> Kubernetes > Gateways, Services & Ingress > INGRESS
-
-   * Example IP: `34.148.61.120`
-
-2. Configure your domain DNS settings:
-   * Go to your domain provider's website (e.g., GoDaddy, Namecheap, etc.)
-   * Find the DNS settings or DNS management section
-   * Add a new 'A Record' with:
-     - Host/Name: `@` (or leave blank, depending on provider)
-     - Points to/Value: Your `nginx_ingress_ip`
-     - TTL: 3600 (or default)
-
-3. Wait for DNS propagation (can take 5-30 minutes)
-
-4. Access your app:
-   * Go to: `http://your-domain.com`
-   * Example: `http://formaggio.me`
-
-#### View the App (If you do not have a domain)
-* Copy the `nginx_ingress_ip` from the terminal from the create cluster command
-* Go to `http://<YOUR INGRESS IP>.sslip.io`
-
-* Example: http://35.231.159.32.sslip.io/
-
-<hr style="height:4px;border-width:0;color:gray;background-color:gray">
-
-## Setup GitHub Action Workflow Credentials
-
-In this step we need to setup credentials in GitHub so that we can perform the following functions in GCP:
-* Push docker images to Google Artifact Registry
-* Run Vertex AI pipeline jobs
-* Update kubernetes deployments 
-
-### Setup
-* Go to the repo Settings
-* Select "Secrets and variable" from the left side menu and select "Actions"
-* Under "Repository secrets" click "New repository secret"
-* Give the Name as "GOOGLE_APPLICATION_CREDENTIALS"
-* For the Secret copy+paste the contents of your secrets file `deployment.json` 
-
-## Continuous Integration and Continuous Deployment (CI/CD) 
-
-Continuous Integration and Continuous Delivery/Continuous Deployment (CI/CD) is a set of principles and practices in software development and operations aimed at frequently delivering code changes reliably and efficiently.
-
-**Continuous Integration (CI):** Practice of regularly integrating code changes from multiple developers into a shared repository. The main goal is to detect integration issues early by automatically testing and building the code whenever a change is made. CI ensures that the codebase is always in a functional state.
-
-**Continuous Delivery (CD):** This is an extension of CI, focusing on automating the delivery of applications to various environments, like staging or testing, in a way that they can be released to production at any time. The emphasis is on ensuring that the software can be deployed to a production environment and is ready for release but does not necessarily release it to the end users automatically.
-
-**Continuous Deployment (CD):** This takes the automation a step further by automatically deploying code changes to production after they pass all the automated tests in the deployment pipeline. This approach allows for a rapid release cycle and is commonly used in scenarios where rapid deployment and iteration are essential.
-
-In this tutorial we only focus on Continuous Deployment. We will use GitHub Actions to deploy our app to Kubernetes. The CI part is not implemented in this tutorial. 
-
-
-### Frontend & Backend Changes
-
-We have a GitHub Action that will build and deploy a new version of the app when a git commit has a comment `/run-deploy-app`
-
-* Open the file `src` / `api-service` / `api` / `service.py`
-* Update the version in line 29:
-```
-@app.get("/status")
-async def get_api_status():
-    return {
-        "version": "2.0",
-    }
-```
-* Open the file `src` / `frontend-react` / `src` / `services` / `Common.js`
-* Update the version in line 3:
-```
-export const APP_VERSION = 2.2;
+```bash
+./docker-shell.sh
 ```
 
-To change the background color of the header in the frontend.
-* Open the file `src` / `frontend-react` / `src` / `components` / `layout` / `Header.jsx`
-* Update the background color in line 69 to `bg-sky-700`:
-```
-className={`fixed w-full top-0 z-50 transition-all duration-300 ${isScrolled ? 'bg-sky-700' : 'bg-transparent'
+1. `deploy_base` now also makes the ML bucket, `<your project>-cheese-app-ml`, where the pipeline keeps
+   its photos and models. Run it again even if you ran it in `cheese-app-v3`:
+```bash
+cd /app/deploy_base && pulumi stack select dev --create && pulumi up --stack dev -y
 ```
 
-To run the deploy app action, add the following to code commit comment:
-**Do this outside the container**
-* Add `/deploy-app` to the commit message to re-deploy the frontend and backend 
-
+2. If your cluster is gone, create it again. About 11 minutes:
+```bash
+cd /app/deploy_k8s && pulumi stack select dev --create && pulumi up --stack dev -y
 ```
-git add .
-git commit -m "update frontend and backend version and header color /deploy-app"
+
+3. Deploy the app once from here, the same way GitHub will. It builds and pushes the images, six now,
+   then rolls them out. The first time takes several minutes; the load balancer takes about 2 more
+   before the address answers:
+```bash
+cd /app && ./scripts/deploy-app.sh
+```
+
+### Tell GitHub your project and key
+In your fork, open **Settings > Secrets and variables > Actions**:
+1. Under **Secrets**, choose **New repository secret**. Name: `GOOGLE_APPLICATION_CREDENTIALS`. Secret:
+   paste everything in your `deployment.json`.
+2. Under **Variables**, choose **New repository variable**. Name: `GCP_PROJECT`. Value: your project ID.
+   `GCP_REGION` and `GCP_ZONE` are optional: `us-central1` and `us-central1-a` unless you set them.
+
+GitHub never shows a secret again, not even to you, and hides it in the workflows' logs. It is still
+your deployment key: anyone who can change the workflows in your repository can use it, so keep the
+repository's write access to yourself.
+
+## Tutorial: Continuous integration
+`ci.yml` runs on every push, to any branch. It needs no key and touches nothing on Google Cloud:
+
+| Job | What it checks |
+| --- | --- |
+| API tests | `pytest`, and `ruff` for lint and formatting |
+| Frontend lint and build | `eslint`, `prettier` and `vite build` |
+| Deployment and ML lint | `ruff` on the ML containers and Pulumi programs, `shellcheck` on the scripts, the Kubernetes YAML renders, the ML pipeline compiles |
+| Build (one per image) | Each of the six production images builds |
+
+1. Make a branch, change anything and push it:
+```bash
+git switch -c try-ci
+```
+
+```bash
+git commit --allow-empty -m "Try CI"
+```
+
+```bash
+git push -u origin try-ci
+```
+
+2. Open **Actions** in your fork, then the **CI** run. The jobs run side by side.
+
+3. Now break a test. In `src/api-service/api/service.py`, change `"version": "4.0.0"` to `"4.1.0"`, then
+   commit and push. **API tests** turns red: `tests/test_service.py` still expects `4.0.0`. Put it back
+   (or fix the test), push again, and it is green.
+
+On a pull request, GitHub shows the same checks next to the merge button. That is what CI is for:
+nothing reaches `main`, and from there the cluster, without them.
+
+## Tutorial: Deploy the app with a commit
+`deploy-app.yml` runs on pushes to `main` whose commit message contains `/deploy-app`. It runs CI first,
+and only if CI passes, runs `./scripts/deploy-app.sh` in the deployment container, the command you ran
+in the setup:
+- `pulumi up` on `deploy_images` builds and pushes only the images whose files changed: each tag is a
+  hash of its folder
+- `deploy-k8s.sh` points the workloads at the new images. Kubernetes replaces those pods one at a time,
+  and the others never restart.
+
+1. Make a change you can see:
+   - `src/frontend-react/src/lib/api.js`: `APP_VERSION = '4.1.0'`
+   - `src/api-service/api/service.py`: `"version": "4.1.0"`, and `4.1.0` in `tests/test_service.py`
+   - `src/frontend-react/src/App.jsx`: add `bg-sky-700` to the `<header>`'s `className`
+
+2. Commit with `/deploy-app` in the message, on `main`, and push:
+```bash
+git switch main
+```
+
+```bash
+git commit -am "Version 4.1.0 and a blue header /deploy-app"
+```
+
+```bash
 git push
 ```
 
+3. Open **Actions**, then the **Deploy app** run: first **CI**, then **Deploy to GKE**.
 
-### ML Component Changes
+4. In the deployment container, watch the pods change:
+```bash
+kubectl -n cheese-app get pods -w
+```
 
-We can make changes to ML code and commit to GitHub and invoke running ML Tasks in Vertex AI
+5. Reload the app. The header is blue, and the footer says `Frontend 4.1.0 · API 4.1.0`.
 
-To run Vertex AI Pipelines on code commits, add the following to code commit comment:
-* Add `/run-ml-pipeline` to the commit message to run the entire Vertex AI ML pipeline
-* Add `/run-data-collector` to the commit message to run the data collector ML pipeline
-* Add `/run-data-processor` to the commit message to run the data processor ML pipeline
+To deploy without a commit, open **Actions > Deploy app > Run workflow**.
 
+Things to know:
+- GitHub looks at the newest commit of a push only: put `/deploy-app` in that one.
+- One Google Cloud change runs at a time. A second deploy, or an ML run, waits for the first.
+- The workflow and your laptop run the same script in the same container. When a deploy fails on
+  GitHub, run `./scripts/deploy-app.sh` in your deployment container and you will see the same thing.
 
+## Tutorial: Train the model with a commit
+**Identify** names the cheese in a photo with a CNN. Until now it came from GitHub, trained for you.
+Here we train our own, on photos we collect, in three steps on Vertex AI Pipelines. The steps pass
+their work to each other through the ML bucket:
 
-AJ TESTING !!! AGAIN 
+| Step | Folder | Reads | Writes to the ML bucket |
+| --- | --- | --- | --- |
+| Collect | `data-collector` | Bing image search | `raw.zip`: 50 photos for each of brie, gouda, gruyere and parmigiano |
+| Process | `data-processor` | `raw.zip` | `clean.zip`: no broken photos or near-duplicates, all JPEGs |
+| Train | `model-training` | `clean.zip` | `models/<run>/model.keras`, `data_details.json`, `metrics.json`, then `models/latest` |
+
+The API reads `models/latest` when it starts. Before the first training, it uses the model from GitHub.
+
+1. Commit with `/run-ml-pipeline` in the message, on `main`, and push. The commit needs no changes:
+```bash
+git commit --allow-empty -m "Train a new model /run-ml-pipeline"
+```
+
+```bash
+git push
+```
+
+2. Open **Actions**, then the **ML pipeline** run. After CI, it builds the ML images that changed and
+   starts the pipeline. Follow the steps in the console: **Vertex AI > Pipelines**.
+
+3. When training is done, the workflow restarts the API's pods, one at a time, so they load the new
+   model. The footer shows it: `Model <run>`, the time it was trained. Try **Identify** with a photo.
+
+4. See what the steps wrote:
+```bash
+gcloud storage ls gs://$GCP_PROJECT-cheese-app-ml/ gs://$GCP_PROJECT-cheese-app-ml/models/
+```
+
+```bash
+gcloud storage cat gs://$GCP_PROJECT-cheese-app-ml/models/latest
+```
+
+One step at a time:
+
+| In the commit message | Runs |
+| --- | --- |
+| `/run-ml-pipeline` | Collect, process, train |
+| `/run-data-collector` | Collect |
+| `/run-data-processor` | Process |
+| `/run-model-training` | Train, on the photos already in the bucket |
+
+Or open **Actions > ML pipeline > Run workflow** and choose the steps. From the deployment container,
+the same script runs it, and `PER_LABEL` and `EPOCHS` change how many photos and how long it trains:
+```bash
+PER_LABEL=50 EPOCHS=10 ./scripts/run-ml-pipeline.sh
+```
+
+### Work on a step on your laptop
+Each ML folder has a `docker-shell.sh`, like `cheese-app-v2`'s, that runs its container against your ML
+bucket, with `deployment.json`, which can read and write it. Change `GCP_PROJECT` at its top first. For
+example:
+```bash
+cd src/model-training
+```
+
+```bash
+./docker-shell.sh cli.py --bucket ac215-project-cheese-app-ml --epochs 3
+```
+
+## Review the code
+| File | What it does |
+| --- | --- |
+| `.github/workflows/ci.yml` | The checks on every push. The other two workflows run it first |
+| `.github/workflows/deploy-app.yml` | `/deploy-app`: writes the key, then `./docker-shell.sh ./scripts/deploy-app.sh` |
+| `.github/workflows/ml-pipeline.yml` | `/run-…`: reads the steps from the commit message, then `./docker-shell.sh ./scripts/run-ml-pipeline.sh` |
+| `src/deployment/docker-shell.sh` | The deployment container. With a script after it, it runs that script and stops |
+| `src/deployment/scripts/deploy-app.sh` | `pulumi up` on `deploy_images`, then `deploy-k8s.sh` |
+| `src/deployment/scripts/run-ml-pipeline.sh` | Builds the images, runs the steps, restarts the API |
+| `src/deployment/ml/pipeline.py` | The pipeline: one container step per folder, run as `gcp-service` |
+| `src/deployment/deploy_base/__main__.py` | The static IP, the registry, the chat bucket and the ML bucket |
+| `src/deployment/deploy_images/__main__.py` | The six images, each tagged with a hash of its folder |
+| `src/data-collector/downloader.py` | Reads Bing's image search, the way a browser does |
+| `src/data-processor/cli.py` | Finds near-duplicates with an 8x8 fingerprint of each photo |
+| `src/model-training/cli.py` | MobileNetV2 trained on ImageNet, frozen, with a new last layer for our cheeses |
+| `src/api-service/api/utils/llm_cnn_utils.py` | Loads `models/latest` from the ML bucket, or the model from GitHub |
+
+Three things to notice in the workflows:
+- A commit message is text anyone with push access can type. The ML workflow reads it from a variable
+  and never pastes it into a command, where a message like `$(…)` would run.
+- `concurrency: gcp-deploy` sits on the deploy jobs, not on the workflows: every push to `main` starts
+  both workflows, and only the ones with a command should wait in line.
+- Nothing in a workflow builds or deploys by itself: they call the scripts you can run, so the
+  laptop and GitHub never drift apart.
+
+## Kubernetes on your laptop
+The kind cluster from `cheese-app-v3` works here too, in the deployment container. It uses the model
+from GitHub, since it has no ML bucket:
+```bash
+./scripts/create-cluster-kind.sh
+```
+
+```bash
+./scripts/deploy-kind.sh
+```
+
+Then open http://localhost:8090. `./scripts/delete-cluster-kind.sh` deletes it.
+
+## Troubleshooting
+
+| What you see | What to do |
+| --- | --- |
+| No workflows run in your fork | Open **Actions** and enable them |
+| `Set the repository variable GCP_PROJECT` | Add the variable, as in the setup |
+| `Add the repository secret GOOGLE_APPLICATION_CREDENTIALS` | Add the secret, as in the setup |
+| A push to `main` does not deploy | Put `/deploy-app` in the newest commit's message, or use **Run workflow** |
+| Deploy fails on `cluster_name` | No cluster: create it with `deploy_k8s`, as in the setup |
+| ML pipeline fails with `aiplatform.pipelineJobs.create` | Give `deployment` the Agent Platform User role |
+| ML pipeline fails with `iam.serviceAccounts.actAs` | Give `deployment` the Service Account User role |
+| `No photos found for …: has Bing changed its page?` | Bing changed its search page. `src/data-collector/downloader.py` is the file to fix |
+| `Only … photos of …: collect more first` | Run it again with more photos: `PER_LABEL=80` |
+| Ask says `Gemini: 403 ... aiplatform.endpoints.predict` | `gcp-service` lacks **Agent Platform User** (`roles/aiplatform.user`) |
+| The footer says `Model experiment_…` after training | The API had not restarted: `kubectl -n cheese-app rollout restart deployment/api-service` |
+
+## Cleanup
+Delete the cluster, from the deployment container. About 15 minutes:
+```bash
+cd /app && ./scripts/destroy-k8s.sh
+```
+
+A pipeline leaves nothing running. To delete the photos and models too, along with the static IP, the
+registry and the chats:
+```bash
+cd /app/deploy_base && pulumi destroy --stack dev -y
+```
