@@ -7,6 +7,7 @@ echo "UV version: $(uv --version)"
 
 # The image has the dependencies; this only picks up a change to uv.lock since it was built.
 uv sync --frozen
+# shellcheck source=/dev/null  # the virtualenv exists only in the image
 source /home/app/.venv/bin/activate
 
 api_server() {

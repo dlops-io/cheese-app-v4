@@ -1,0 +1,5 @@
+#!/usr/bin/env bash
+# Git runs this before each commit, once you have run (one time, in your clone):
+#   git config core.hooksPath .githooks
+# It runs the checks in .pre-commit-config.yaml in Docker. Skip them once with git commit --no-verify.
+exec "$(git rev-parse --show-toplevel)/src/checks/run.sh"

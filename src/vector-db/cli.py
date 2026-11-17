@@ -1,25 +1,24 @@
-import os
 import argparse
-import pandas as pd
-import json
-import time
 import glob
 import hashlib
-import chromadb
+import os
+import time
 import urllib.request
 import zipfile
 
+import chromadb
+import pandas as pd
+
 # Vertex AI
 from google import genai
-from google.genai import types
+from google.genai import errors, types
 from google.genai.types import Content, Part
-from google.genai import errors
 
 # Langchain
-from langchain_text_splitters import CharacterTextSplitter
-from langchain_text_splitters import RecursiveCharacterTextSplitter
-from semantic_splitter import SemanticChunker
+from langchain_text_splitters import CharacterTextSplitter, RecursiveCharacterTextSplitter
+
 import agent_tools
+from semantic_splitter import SemanticChunker
 
 # Setup
 GCP_PROJECT = os.environ["GCP_PROJECT"]
@@ -36,8 +35,7 @@ CHROMADB_PORT = os.environ["CHROMADB_PORT"]
 
 #############################################################################
 #                       Initialize the LLM Client                           #
-llm_client = genai.Client(
-    vertexai=True, project=GCP_PROJECT, location=GCP_LOCATION)
+llm_client = genai.Client(vertexai=True, project=GCP_PROJECT, location=GCP_LOCATION)
 #############################################################################
 
 # Initialize the GenerativeModel with specific system instructions
@@ -63,28 +61,36 @@ Your goal is to provide accurate, helpful information about cheese based solely 
 
 
 book_mappings = {
-	"Cheese and its economical uses in the diet": {"author":"C. F. Langworthy and Caroline Louisa Hunt", "year": 2023},
-	"Cottage Cheese Recipe Book":{"author": "Milk Industry Foundation", "year": 2021},
-	"Dairying exemplified, or, The business of cheese-making": {"author":"J. Twamley", "year": 2023},
-	"Hand-book on cheese making": {"author":"George E. Newell", "year": 2023},
-	"Hints on cheese-making, for the dairyman, the factoryman, and the manufacturer": {"author":"T. D. Curtis", "year": 2013},
-	"The Book of Cheese": {"author":"Charles Thom and W. W. Fisk", "year": 2012},
-	"The book of The Cheese Being traits and stories of Ye Olde Cheshire Cheese": {"author":"Thomas Wilson Reid", "year": 2023},
-	"The Complete Book of Cheese": {"author":"Bob Brown", "year": 2024},
-	"Theres Pippins and Cheese to Come": {"author":"Charles S. Brooks", "year": 2003},
-	"Womans Institute Library of Cookery. Volume 2_ Milk, Butter and Cheese Eggs Vegetables": {"author":"Woman's Institute of Domestic Arts and Sciences", "year": 2006},
-	"Tolminc Cheese": {"author": "Pavlos Protopapas", "year": 2024}
+    "Cheese and its economical uses in the diet": {
+        "author": "C. F. Langworthy and Caroline Louisa Hunt",
+        "year": 2023,
+    },
+    "Cottage Cheese Recipe Book": {"author": "Milk Industry Foundation", "year": 2021},
+    "Dairying exemplified, or, The business of cheese-making": {"author": "J. Twamley", "year": 2023},
+    "Hand-book on cheese making": {"author": "George E. Newell", "year": 2023},
+    "Hints on cheese-making, for the dairyman, the factoryman, and the manufacturer": {
+        "author": "T. D. Curtis",
+        "year": 2013,
+    },
+    "The Book of Cheese": {"author": "Charles Thom and W. W. Fisk", "year": 2012},
+    "The book of The Cheese Being traits and stories of Ye Olde Cheshire Cheese": {
+        "author": "Thomas Wilson Reid",
+        "year": 2023,
+    },
+    "The Complete Book of Cheese": {"author": "Bob Brown", "year": 2024},
+    "Theres Pippins and Cheese to Come": {"author": "Charles S. Brooks", "year": 2003},
+    "Womans Institute Library of Cookery. Volume 2_ Milk, Butter and Cheese Eggs Vegetables": {
+        "author": "Woman's Institute of Domestic Arts and Sciences",
+        "year": 2006,
+    },
+    "Tolminc Cheese": {"author": "Pavlos Protopapas", "year": 2024},
 }
 
 
 def generate_query_embedding(query):
-    kwargs = {
-        "output_dimensionality": EMBEDDING_DIMENSION
-    }
+    kwargs = {"output_dimensionality": EMBEDDING_DIMENSION}
     response = llm_client.models.embed_content(
-        model=EMBEDDING_MODEL,
-        contents=query,
-        config=types.EmbedContentConfig(**kwargs)
+        model=EMBEDDING_MODEL, contents=query, config=types.EmbedContentConfig(**kwargs)
     )
     return response.embeddings[0].values
 
@@ -94,7 +100,7 @@ def generate_text_embeddings(chunks, dimensionality: int = 256, batch_size=250, 
     all_embeddings = []
 
     for i in range(0, len(chunks), batch_size):
-        batch = chunks[i:i+batch_size]
+        batch = chunks[i : i + batch_size]
 
         # Retry logic with exponential backoff
         retry_count = 0
@@ -103,24 +109,22 @@ def generate_text_embeddings(chunks, dimensionality: int = 256, batch_size=250, 
                 response = llm_client.models.embed_content(
                     model=EMBEDDING_MODEL,
                     contents=batch,
-                    config=types.EmbedContentConfig(
-                        output_dimensionality=dimensionality),
+                    config=types.EmbedContentConfig(output_dimensionality=dimensionality),
                 )
-                all_embeddings.extend(
-                    [embedding.values for embedding in response.embeddings])
+                all_embeddings.extend([embedding.values for embedding in response.embeddings])
                 break
 
             except errors.APIError as e:
                 retry_count += 1
                 if retry_count > max_retries:
-                    print(
-                        f"Failed to generate embeddings after {max_retries} attempts. Last error: {str(e)}")
+                    print(f"Failed to generate embeddings after {max_retries} attempts. Last error: {str(e)}")
                     raise
 
                 # Calculate delay with exponential backoff
                 wait_time = retry_delay * (2 ** (retry_count - 1))
                 print(
-                    f"API error (code: {e.code}): {e.message}. Retrying in {wait_time} seconds (attempt {retry_count}/{max_retries})...")
+                    f"API error (code: {e.code}): {e.message}. Retrying in {wait_time} seconds (attempt {retry_count}/{max_retries})..."
+                )
                 time.sleep(wait_time)
 
     return all_embeddings
@@ -130,13 +134,10 @@ def load_text_embeddings(df, collection, batch_size=500):
 
     # Generate ids
     df["id"] = df.index.astype(str)
-    hashed_books = df["book"].apply(
-        lambda x: hashlib.sha256(x.encode()).hexdigest()[:16])
+    hashed_books = df["book"].apply(lambda x: hashlib.sha256(x.encode()).hexdigest()[:16])
     df["id"] = hashed_books + "-" + df["id"]
 
-    metadata = {
-        "book": df["book"].tolist()[0]
-    }
+    metadata = {"book": df["book"].tolist()[0]}
     if metadata["book"] in book_mappings:
         book_mapping = book_mappings[metadata["book"]]
         metadata["author"] = book_mapping["author"]
@@ -146,24 +147,18 @@ def load_text_embeddings(df, collection, batch_size=500):
     total_inserted = 0
     for i in range(0, df.shape[0], batch_size):
         # Create a copy of the batch and reset the index
-        batch = df.iloc[i:i+batch_size].copy().reset_index(drop=True)
+        batch = df.iloc[i : i + batch_size].copy().reset_index(drop=True)
 
         ids = batch["id"].tolist()
         documents = batch["chunk"].tolist()
         metadatas = [metadata for item in batch["book"].tolist()]
         embeddings = batch["embedding"].tolist()
 
-        collection.add(
-            ids=ids,
-            documents=documents,
-            metadatas=metadatas,
-            embeddings=embeddings
-        )
+        collection.add(ids=ids, documents=documents, metadatas=metadatas, embeddings=embeddings)
         total_inserted += len(batch)
         print(f"Inserted {total_inserted} items...")
 
-    print(
-        f"Finished inserting {total_inserted} items into collection '{collection.name}'")
+    print(f"Finished inserting {total_inserted} items into collection '{collection.name}'")
 
 
 def chunk(method="char-split"):
@@ -191,7 +186,8 @@ def chunk(method="char-split"):
             chunk_overlap = 20
             # Init the splitter
             text_splitter = CharacterTextSplitter(
-                chunk_size=chunk_size, chunk_overlap=chunk_overlap, separator='', strip_whitespace=False)
+                chunk_size=chunk_size, chunk_overlap=chunk_overlap, separator="", strip_whitespace=False
+            )
 
             # Perform the splitting
             text_chunks = text_splitter.create_documents([input_text])
@@ -201,8 +197,7 @@ def chunk(method="char-split"):
         elif method == "recursive-split":
             chunk_size = 350
             # Init the splitter
-            text_splitter = RecursiveCharacterTextSplitter(
-                chunk_size=chunk_size)
+            text_splitter = RecursiveCharacterTextSplitter(chunk_size=chunk_size)
 
             # Perform the splitting
             text_chunks = text_splitter.create_documents([input_text])
@@ -211,8 +206,7 @@ def chunk(method="char-split"):
 
         elif method == "semantic-split":
             # Init the splitter
-            text_splitter = SemanticChunker(
-                embedding_function=generate_text_embeddings)
+            text_splitter = SemanticChunker(embedding_function=generate_text_embeddings)
             # Perform the splitting
             text_chunks = text_splitter.create_documents([input_text])
 
@@ -226,18 +220,16 @@ def chunk(method="char-split"):
             print("Shape:", data_df.shape)
             print(data_df.head())
 
-            jsonl_filename = os.path.join(
-                OUTPUT_FOLDER, f"chunks-{method}-{book_name}.jsonl")
+            jsonl_filename = os.path.join(OUTPUT_FOLDER, f"chunks-{method}-{book_name}.jsonl")
             with open(jsonl_filename, "w") as json_file:
-                json_file.write(data_df.to_json(orient='records', lines=True))
+                json_file.write(data_df.to_json(orient="records", lines=True))
 
 
 def embed(method="char-split"):
     print("embed()")
 
     # Get the list of chunk files
-    jsonl_files = glob.glob(os.path.join(
-        OUTPUT_FOLDER, f"chunks-{method}-*.jsonl"))
+    jsonl_files = glob.glob(os.path.join(OUTPUT_FOLDER, f"chunks-{method}-*.jsonl"))
     print("Number of files to process:", len(jsonl_files))
 
     # Process
@@ -251,11 +243,9 @@ def embed(method="char-split"):
         chunks = data_df["chunk"].values
         chunks = chunks.tolist()
         if method == "semantic-split":
-            embeddings = generate_text_embeddings(
-                chunks, EMBEDDING_DIMENSION, batch_size=15)
+            embeddings = generate_text_embeddings(chunks, EMBEDDING_DIMENSION, batch_size=15)
         else:
-            embeddings = generate_text_embeddings(
-                chunks, EMBEDDING_DIMENSION, batch_size=100)
+            embeddings = generate_text_embeddings(chunks, EMBEDDING_DIMENSION, batch_size=100)
         data_df["embedding"] = embeddings
 
         time.sleep(5)
@@ -266,7 +256,7 @@ def embed(method="char-split"):
 
         jsonl_filename = jsonl_file.replace("chunks-", "embeddings-")
         with open(jsonl_filename, "w") as json_file:
-            json_file.write(data_df.to_json(orient='records', lines=True))
+            json_file.write(data_df.to_json(orient="records", lines=True))
 
 
 def load(method="char-split"):
@@ -289,14 +279,12 @@ def load(method="char-split"):
     except Exception:
         print(f"Collection '{collection_name}' did not exist. Creating new.")
 
-    collection = client.create_collection(
-        name=collection_name, metadata={"hnsw:space": "cosine"})
+    collection = client.create_collection(name=collection_name, metadata={"hnsw:space": "cosine"})
     print(f"Created new empty collection '{collection_name}'")
     print("Collection:", collection)
 
     # Get the list of embedding files
-    jsonl_files = glob.glob(os.path.join(
-        OUTPUT_FOLDER, f"embeddings-{method}-*.jsonl"))
+    jsonl_files = glob.glob(os.path.join(OUTPUT_FOLDER, f"embeddings-{method}-*.jsonl"))
     print("Number of files to process:", len(jsonl_files))
 
     # Process
@@ -360,206 +348,202 @@ def query(method="char-split"):
         query_embeddings=[query_embedding],
         n_results=10,
         where={"book": "The Complete Book of Cheese"},
-        where_document={"$contains": search_string}
+        where_document={"$contains": search_string},
     )
     print("Query:", query)
     print("\n\nResults:", results)
 
 
 def chat(method="char-split"):
-	print("chat()")
+    print("chat()")
 
-	# Connect to chroma DB
-	client = chromadb.HttpClient(host=CHROMADB_HOST, port=CHROMADB_PORT)
-	# Get a collection object from an existing collection, by name. If it doesn't exist, create it.
-	collection_name = f"{method}-collection"
+    # Connect to chroma DB
+    client = chromadb.HttpClient(host=CHROMADB_HOST, port=CHROMADB_PORT)
+    # Get a collection object from an existing collection, by name. If it doesn't exist, create it.
+    collection_name = f"{method}-collection"
 
-	query = "How is cheese made?"
-	query_embedding = generate_query_embedding(query)
-	print("Query:", query)
-	print("Embedding values:", query_embedding)
-	# Get the collection
-	collection = client.get_collection(name=collection_name)
+    query = "How is cheese made?"
+    query_embedding = generate_query_embedding(query)
+    print("Query:", query)
+    print("Embedding values:", query_embedding)
+    # Get the collection
+    collection = client.get_collection(name=collection_name)
 
-	# Query based on embedding value 
-	results = collection.query(
-		query_embeddings=[query_embedding],
-		n_results=10
-	)
-	print("\n\nResults:", results)
+    # Query based on embedding value
+    results = collection.query(query_embeddings=[query_embedding], n_results=10)
+    print("\n\nResults:", results)
 
-	print(len(results["documents"][0]))
+    print(len(results["documents"][0]))
 
-	INPUT_PROMPT = f"""
+    INPUT_PROMPT = f"""
 	{query}
 	{"\n".join(results["documents"][0])}
 	"""
 
-	print("INPUT_PROMPT: ",INPUT_PROMPT)
-	response = llm_client.models.generate_content(
-		model=GENERATIVE_MODEL,
-		contents=INPUT_PROMPT,
-		config=types.GenerateContentConfig(system_instruction=SYSTEM_INSTRUCTION),
-	)
-	print("LLM Response:", response.text)
+    print("INPUT_PROMPT: ", INPUT_PROMPT)
+    response = llm_client.models.generate_content(
+        model=GENERATIVE_MODEL,
+        contents=INPUT_PROMPT,
+        config=types.GenerateContentConfig(system_instruction=SYSTEM_INSTRUCTION),
+    )
+    print("LLM Response:", response.text)
 
 
 def get(method="char-split"):
-	print("get()")
+    print("get()")
 
-	# Connect to chroma DB
-	client = chromadb.HttpClient(host=CHROMADB_HOST, port=CHROMADB_PORT)
-	# Get a collection object from an existing collection, by name. If it doesn't exist, create it.
-	collection_name = f"{method}-collection"
+    # Connect to chroma DB
+    client = chromadb.HttpClient(host=CHROMADB_HOST, port=CHROMADB_PORT)
+    # Get a collection object from an existing collection, by name. If it doesn't exist, create it.
+    collection_name = f"{method}-collection"
 
-	# Get the collection
-	collection = client.get_collection(name=collection_name)
+    # Get the collection
+    collection = client.get_collection(name=collection_name)
 
-	# Get documents with filters
-	results = collection.get(
-		where={"book":"The Complete Book of Cheese"},
-		limit=10
-	)
-	print("\n\nResults:", results)
+    # Get documents with filters
+    results = collection.get(where={"book": "The Complete Book of Cheese"}, limit=10)
+    print("\n\nResults:", results)
 
 
 def agent(method="char-split"):
-	print("agent()")
+    print("agent()")
 
-	# Connect to chroma DB
-	client = chromadb.HttpClient(host=CHROMADB_HOST, port=CHROMADB_PORT)
-	# Get a collection object from an existing collection, by name. If it doesn't exist, create it.
-	collection_name = f"{method}-collection"
-	# Get the collection
-	collection = client.get_collection(name=collection_name)
+    # Connect to chroma DB
+    client = chromadb.HttpClient(host=CHROMADB_HOST, port=CHROMADB_PORT)
+    # Get a collection object from an existing collection, by name. If it doesn't exist, create it.
+    collection_name = f"{method}-collection"
+    # Get the collection
+    collection = client.get_collection(name=collection_name)
 
-	# User prompt
-	user_prompt_content = Content(
-    	role="user",
-		parts=[
-			Part.from_text(text="Describe where cheese making is important in Pavlos's book?"),
-		],
-	)
-	
-	# The agent loop: the LLM asks for tools, we run them and send back the results, until it answers
-	print("user_prompt_content: ",user_prompt_content)
-	contents = [user_prompt_content]
-	# ANY forces a tool call on the first round, so the answer comes from the books; then it may answer
-	mode = "ANY"
-	for _ in range(5):
-		response = llm_client.models.generate_content(
-			model=GENERATIVE_MODEL,
-			contents=contents,
-			config=types.GenerateContentConfig(
-				temperature=0,
-				tools=[agent_tools.cheese_expert_tool],  # Tools available to the model
-				tool_config=types.ToolConfig(
-					function_calling_config=types.FunctionCallingConfig(mode=mode)
-				),
-			),
-		)
-		mode = "AUTO"
-		if not response.function_calls:
-			print("LLM Response:", response.text)
-			return
+    # User prompt
+    user_prompt_content = Content(
+        role="user",
+        parts=[
+            Part.from_text(text="Describe where cheese making is important in Pavlos's book?"),
+        ],
+    )
 
-		print("Function calls:")
-		function_responses = agent_tools.execute_function_calls(response.function_calls,collection,embed_func=generate_query_embedding)
-		contents.append(response.candidates[0].content)  # What the LLM asked for
-		contents.append(Content(role="user", parts=function_responses))  # What the tools found
-	print("The agent did not answer within 5 rounds")
+    # The agent loop: the LLM asks for tools, we run them and send back the results, until it answers
+    print("user_prompt_content: ", user_prompt_content)
+    contents = [user_prompt_content]
+    # ANY forces a tool call on the first round, so the answer comes from the books; then it may answer
+    mode = "ANY"
+    for _ in range(5):
+        response = llm_client.models.generate_content(
+            model=GENERATIVE_MODEL,
+            contents=contents,
+            config=types.GenerateContentConfig(
+                temperature=0,
+                tools=[agent_tools.cheese_expert_tool],  # Tools available to the model
+                tool_config=types.ToolConfig(function_calling_config=types.FunctionCallingConfig(mode=mode)),
+            ),
+        )
+        mode = "AUTO"
+        if not response.function_calls:
+            print("LLM Response:", response.text)
+            return
+
+        print("Function calls:")
+        function_responses = agent_tools.execute_function_calls(
+            response.function_calls, collection, embed_func=generate_query_embedding
+        )
+        contents.append(response.candidates[0].content)  # What the LLM asked for
+        contents.append(Content(role="user", parts=function_responses))  # What the tools found
+    print("The agent did not answer within 5 rounds")
 
 
 def download():
-	print("download()")
+    print("download()")
 
-	# Make dataset folders
-	os.makedirs(OUTPUT_FOLDER, exist_ok=True)
+    # Make dataset folders
+    os.makedirs(OUTPUT_FOLDER, exist_ok=True)
 
-	# Download from Github for easy access (This needs to be from you GCS bucket)
-	# # https://github.com/dlops-io/datasets/releases/download/v4.0/cheese-books-embeddings.zip
-	packet_url = "https://github.com/dlops-io/datasets/releases/download/v4.0/cheese-books-embeddings.zip"
-	packet_file = os.path.basename(packet_url)
-	urllib.request.urlretrieve(packet_url, os.path.join(OUTPUT_FOLDER, packet_file))
-	with zipfile.ZipFile(os.path.join(OUTPUT_FOLDER, packet_file)) as zfile:
-		zfile.extractall()
+    # Download from Github for easy access (This needs to be from you GCS bucket)
+    # # https://github.com/dlops-io/datasets/releases/download/v4.0/cheese-books-embeddings.zip
+    packet_url = "https://github.com/dlops-io/datasets/releases/download/v4.0/cheese-books-embeddings.zip"
+    packet_file = os.path.basename(packet_url)
+    urllib.request.urlretrieve(packet_url, os.path.join(OUTPUT_FOLDER, packet_file))
+    with zipfile.ZipFile(os.path.join(OUTPUT_FOLDER, packet_file)) as zfile:
+        zfile.extractall()
 
 
 def main(args=None):
-	print("CLI Arguments:", args)
+    print("CLI Arguments:", args)
 
-	if args.download: 
-		download()
+    if args.download:
+        download()
 
-	if args.chunk:
-		chunk(method=args.chunk_type)
+    if args.chunk:
+        chunk(method=args.chunk_type)
 
-	if args.embed:
-		embed(method=args.chunk_type)
+    if args.embed:
+        embed(method=args.chunk_type)
 
-	if args.load:
-		load(method=args.chunk_type)
+    if args.load:
+        load(method=args.chunk_type)
 
-	if args.query:
-		query(method=args.chunk_type)
-	
-	if args.chat:
-		chat(method=args.chunk_type)
-	
-	if args.get:
-		get(method=args.chunk_type)
-	
-	if args.agent:
-		agent(method=args.chunk_type)
+    if args.query:
+        query(method=args.chunk_type)
+
+    if args.chat:
+        chat(method=args.chunk_type)
+
+    if args.get:
+        get(method=args.chunk_type)
+
+    if args.agent:
+        agent(method=args.chunk_type)
 
 
 if __name__ == "__main__":
-	# Generate the inputs arguments parser
-	# if you type into the terminal '--help', it will provide the description
-	parser = argparse.ArgumentParser(description="CLI")
+    # Generate the inputs arguments parser
+    # if you type into the terminal '--help', it will provide the description
+    parser = argparse.ArgumentParser(description="CLI")
 
-	parser.add_argument(
-		"--chunk",
-		action="store_true",
-		help="Chunk text",
-	)
-	parser.add_argument(
-		"--embed",
-		action="store_true",
-		help="Generate embeddings",
-	)
-	parser.add_argument(
-		"--load",
-		action="store_true",
-		help="Load embeddings to vector db",
-	)
-	parser.add_argument(
-		"--query",
-		action="store_true",
-		help="Query vector db",
-	)
-	parser.add_argument(
-		"--chat",
-		action="store_true",
-		help="Chat with LLM",
-	)
-	parser.add_argument(
-		"--get",
-		action="store_true",
-		help="Get documents from vector db",
-	)
-	parser.add_argument(
-		"--agent",
-		action="store_true",
-		help="Chat with LLM Agent",
-	)
-	parser.add_argument(
-		"--download",
-		action="store_true",
-		help="Download the embeddings",
-	)
-	parser.add_argument("--chunk_type", default="char-split", help="char-split | recursive-split | semantic-split")
+    parser.add_argument(
+        "--chunk",
+        action="store_true",
+        help="Chunk text",
+    )
+    parser.add_argument(
+        "--embed",
+        action="store_true",
+        help="Generate embeddings",
+    )
+    parser.add_argument(
+        "--load",
+        action="store_true",
+        help="Load embeddings to vector db",
+    )
+    parser.add_argument(
+        "--query",
+        action="store_true",
+        help="Query vector db",
+    )
+    parser.add_argument(
+        "--chat",
+        action="store_true",
+        help="Chat with LLM",
+    )
+    parser.add_argument(
+        "--get",
+        action="store_true",
+        help="Get documents from vector db",
+    )
+    parser.add_argument(
+        "--agent",
+        action="store_true",
+        help="Chat with LLM Agent",
+    )
+    parser.add_argument(
+        "--download",
+        action="store_true",
+        help="Download the embeddings",
+    )
+    parser.add_argument(
+        "--chunk_type", default="char-split", help="char-split | recursive-split | semantic-split"
+    )
 
-	args = parser.parse_args()
+    args = parser.parse_args()
 
-	main(args)
+    main(args)

@@ -1,4 +1,5 @@
 #!/bin/bash
+# shellcheck disable=SC2155  # export VAR=$(pwd) is this script's style
 # A shell in the data-collector container on your laptop, against your ML bucket, with the deployment key
 # The ML pipeline runs the same image on Vertex AI.
 set -e

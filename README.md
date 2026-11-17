@@ -5,6 +5,7 @@ tutorial GitHub does it for us, every time we push:
 
 | Tutorial | What it shows |
 | --- | --- |
+| [Checks before you commit](#tutorial-checks-before-you-commit) | A git hook lints and formats the files you commit, and stops a commit with a key in it |
 | [Continuous integration](#tutorial-continuous-integration) | Every push is tested, linted and built, and a broken one is marked in red |
 | [Deploy the app with a commit](#tutorial-deploy-the-app-with-a-commit) | `/deploy-app` in a commit message ships the change to the cluster, a pod at a time |
 | [Train the model with a commit](#tutorial-train-the-model-with-a-commit) | `/run-ml-pipeline` collects photos, trains a new model on Vertex AI and puts it in the app |
@@ -23,6 +24,7 @@ uses:
 | `src/data-processor/` | Drops broken photos and near-duplicates, and makes the rest JPEGs | Vertex AI Pipelines |
 | `src/model-training/` | Fine-tunes MobileNetV2 on the photos and saves the model | Vertex AI Pipelines |
 | `src/deployment/` | The deployment container: Pulumi, the Kubernetes YAML and the scripts | Your laptop, and GitHub Actions |
+| `src/checks/` | The checks container: the linters and formatters the git hook and CI run | Your laptop, and GitHub Actions |
 | `.github/workflows/` | The three workflows GitHub runs | GitHub Actions |
 
 ## Prerequisites
@@ -49,6 +51,7 @@ GitHub runs the workflows in your repository, with your key, so you need your ow
      |-images
      |-src
        |---api-service
+       |---checks
        |---data-collector
        |---data-processor
        |---deployment
@@ -121,15 +124,76 @@ GitHub never shows a secret again, not even to you, and hides it in the workflow
 your deployment key: anyone who can change the workflows in your repository can use it, so keep the
 repository's write access to yourself.
 
-## Tutorial: Continuous integration
-`ci.yml` runs on every push, to any branch. It needs no key and touches nothing on Google Cloud:
+## Tutorial: Checks before you commit
+Before each commit, a git hook checks the files you are committing. The checks run in Docker, in the
+checks container (`src/checks/`), so you need only git and Docker: no Python, Node or linters on your
+laptop. They are listed in `.pre-commit-config.yaml`, and run by [pre-commit](https://pre-commit.com):
 
-| Job | What it checks |
-| --- | --- |
-| API tests | `pytest`, and `ruff` for lint and formatting |
-| Frontend lint and build | `eslint`, `prettier` and `vite build` |
-| Deployment and ML lint | `ruff` on the ML containers and Pulumi programs, `shellcheck` on the scripts, the Kubernetes YAML renders, the ML pipeline compiles |
-| Build (one per image) | Each of the six production images builds |
+| Check | Tool | Fixes it for you |
+| --- | --- | --- |
+| Spaces at line ends, a newline at the end of each file | pre-commit-hooks | Yes |
+| YAML, JSON and TOML parse, no merge conflict markers, no new file over 1 MB | pre-commit-hooks | No |
+| No private keys, passwords or API keys | `detect-private-key`, `gitleaks` | No |
+| Python lint and format, with each folder's `pyproject.toml` | `ruff` | Mostly |
+| Shell scripts | `shellcheck` | No |
+| GitHub Actions workflows | `actionlint` | No |
+| Frontend format and lint, with the frontend's own versions and settings | `prettier`, `eslint` | prettier does |
+
+1. Turn the hook on. Git does not copy hooks with a clone, so do this once in each clone, from its top
+   folder:
+```bash
+git config core.hooksPath .githooks
+```
+
+2. Commit some badly formatted Python: an import it never uses, and odd spacing:
+```bash
+printf 'import os\ndef shout( word ):\n    return word.upper( )+"!"\n' > src/data-processor/try_hook.py
+```
+
+```bash
+git add src/data-processor/try_hook.py && git commit -m "Try the hook"
+```
+
+   The first time, Docker builds the checks container, about a minute; after that a commit waits a few
+   seconds. **Python lint (ruff)** and **Python format (ruff)** fail, and no commit is made. They have
+   fixed the file already: `git diff` shows the import gone and the spacing tidied.
+
+3. Add the fixed file and commit again. Every check passes:
+```bash
+git add src/data-processor/try_hook.py && git commit -m "Try the hook"
+```
+
+4. Delete the file again:
+```bash
+git rm -q src/data-processor/try_hook.py && git commit -m "Remove the hook example"
+```
+
+A file with a private key in it, like `deployment.json`, stops the commit the same way: **No private
+keys** and **No keys or passwords (gitleaks)** fail, and nothing has left your laptop yet.
+
+To run the checks without committing:
+```bash
+src/checks/run.sh
+```
+
+```bash
+src/checks/run.sh --all-files
+```
+
+The first checks the files you have staged; the second checks every file, as CI does.
+`git commit --no-verify` skips the hook, but not CI: the **Lint and format checks** job in the next
+tutorial runs the same checks on every file.
+
+## Tutorial: Continuous integration
+`ci.yml` runs on every push, to any branch. It needs no key and touches nothing on Google Cloud. Like
+the hook, every job runs in Docker, in the same containers you use on your laptop:
+
+| Job | What it checks | In which container |
+| --- | --- | --- |
+| Lint and format checks | The git hook's checks, on every file | The checks container |
+| API tests | `pytest` | The API's development image (`Dockerfile.dev`) |
+| Deployment checks | `./scripts/check.sh`: `ruff` and `shellcheck`, the Kubernetes YAML renders, the ML pipeline compiles | The deployment container |
+| Build (one per image) | Each of the six production images builds; the frontend's runs `vite build` | Each image's own `Dockerfile` |
 
 1. Make a branch, change anything and push it:
 ```bash
@@ -264,6 +328,10 @@ cd src/model-training
 ## Review the code
 | File | What it does |
 | --- | --- |
+| `.pre-commit-config.yaml` | The checks before each commit, and in CI |
+| `.githooks/pre-commit` | The git hook: runs `src/checks/run.sh` |
+| `src/checks/run.sh` | Builds the checks container, then runs pre-commit in it on your repo |
+| `src/checks/Dockerfile` | Each linter copied from its own official image, at a pinned version |
 | `.github/workflows/ci.yml` | The checks on every push. The other two workflows run it first |
 | `.github/workflows/deploy-app.yml` | `/deploy-app`: writes the key, then `./docker-shell.sh ./scripts/deploy-app.sh` |
 | `.github/workflows/ml-pipeline.yml` | `/run-…`: reads the steps from the commit message, then `./docker-shell.sh ./scripts/run-ml-pipeline.sh` |
@@ -303,6 +371,9 @@ Then open http://localhost:8090. `./scripts/delete-cluster-kind.sh` deletes it.
 
 | What you see | What to do |
 | --- | --- |
+| `The checks run in Docker, and Docker is not running` | Start Docker, then commit again |
+| A check says `files were modified by this hook` | It fixed them: look with `git diff`, `git add` them, commit again |
+| **Lint and format checks** is red, but your commits passed | The hook is off in that clone: `git config core.hooksPath .githooks`, then `src/checks/run.sh --all-files` |
 | No workflows run in your fork | Open **Actions** and enable them |
 | `Set the repository variable GCP_PROJECT` | Add the variable, as in the setup |
 | `Add the repository secret GOOGLE_APPLICATION_CREDENTIALS` | Add the secret, as in the setup |

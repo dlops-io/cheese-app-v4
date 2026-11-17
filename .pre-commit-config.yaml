@@ -1,0 +1,104 @@
+# The checks before each commit. They run in the checks image (src/checks), so the only things you
+# need on your machine are git and Docker. Turn them on once per clone:
+#   git config core.hooksPath .githooks
+# Run them by hand:
+#   src/checks/run.sh                 the files you staged
+#   src/checks/run.sh --all-files     every file, as CI does
+# A check that fixes files (whitespace, ruff, prettier) still fails the commit: look at what it changed,
+# `git add` it, and commit again.
+#
+# Every hook is `language: system`: the tools are already in the image, so pre-commit installs nothing,
+# and their versions are pinned in src/checks/Dockerfile.
+
+# The books loaded into Chroma are data, kept as downloaded
+exclude: ^src/vector-db/input-datasets/
+
+repos:
+  - repo: local
+    hooks:
+      # Files
+      - id: trailing-whitespace
+        name: No spaces at line ends
+        entry: trailing-whitespace-fixer
+        args: [--markdown-linebreak-ext=md]
+        language: system
+        types: [text]
+      - id: end-of-file-fixer
+        name: Files end in one newline
+        entry: end-of-file-fixer
+        language: system
+        types: [text]
+      - id: check-merge-conflict
+        name: No merge conflict markers
+        entry: check-merge-conflict
+        language: system
+        types: [text]
+      - id: check-added-large-files
+        name: No new files over 1 MB
+        entry: check-added-large-files
+        args: [--maxkb=1024]
+        language: system
+      - id: check-yaml
+        name: YAML parses
+        entry: check-yaml
+        args: [--allow-multiple-documents] # Kubernetes files hold several objects
+        language: system
+        types: [yaml]
+      - id: check-json
+        name: JSON parses
+        entry: check-json
+        language: system
+        types: [json]
+      - id: check-toml
+        name: TOML parses
+        entry: check-toml
+        language: system
+        types: [toml]
+
+      # Secrets: a service account key committed to a public repo is found within minutes
+      - id: detect-private-key
+        name: No private keys
+        entry: detect-private-key
+        language: system
+        types: [text]
+      - id: gitleaks
+        name: No keys or passwords (gitleaks)
+        entry: /checks/gitleaks.sh
+        language: system
+        types: [text]
+
+      # Python: each folder's pyproject.toml sets ruff's rules for its files
+      - id: ruff-check
+        name: Python lint (ruff)
+        entry: ruff check --fix --force-exclude
+        language: system
+        types_or: [python, pyi]
+      - id: ruff-format
+        name: Python format (ruff)
+        entry: ruff format --force-exclude
+        language: system
+        types_or: [python, pyi]
+
+      # Shell scripts and GitHub Actions workflows
+      - id: shellcheck
+        name: Shell scripts (shellcheck)
+        entry: shellcheck -x --source-path=SCRIPTDIR
+        language: system
+        types: [shell]
+      - id: actionlint
+        name: GitHub Actions workflows (actionlint)
+        entry: actionlint
+        language: system
+        files: ^\.github/workflows/.*\.ya?ml$
+
+      # Frontend: the same prettier and eslint, with the same settings, as `npm run check`
+      - id: prettier
+        name: Frontend format (prettier)
+        entry: /checks/frontend.sh prettier
+        language: system
+        files: ^src/frontend-react/
+      - id: eslint
+        name: Frontend lint (eslint)
+        entry: /checks/frontend.sh eslint
+        language: system
+        files: ^src/frontend-react/.*\.jsx?$
