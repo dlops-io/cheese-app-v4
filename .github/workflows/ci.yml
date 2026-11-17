@@ -25,7 +25,7 @@ jobs:
         working-directory: src/api-service
     steps:
       - uses: actions/checkout@v7
-      - uses: astral-sh/setup-uv@v10
+      - uses: astral-sh/setup-uv@v10.3.3 # no v10 tag: this action publishes full versions only
         with:
           version: "0.13.6"
       - run: uv sync --frozen
@@ -54,7 +54,7 @@ jobs:
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v7
-      - uses: astral-sh/setup-uv@v10
+      - uses: astral-sh/setup-uv@v10.3.3 # no v10 tag: this action publishes full versions only
         with:
           version: "0.13.6"
       - name: Lint the ML containers
