@@ -1,0 +1,93 @@
+# Continuous integration: on every push, check that the code still works. No secrets, no Google Cloud:
+# it runs the tests and linters and builds every image, and fails the push if any of them fails.
+# The deploy and ML workflows run it first, so only code that passes gets deployed.
+name: CI
+
+on:
+  push:
+  workflow_dispatch:
+  workflow_call:
+
+permissions:
+  contents: read
+
+# A newer push to the same branch makes an older check pointless
+concurrency:
+  group: ${{ github.workflow }}-ci-${{ github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  api-service:
+    name: API tests
+    runs-on: ubuntu-latest
+    defaults:
+      run:
+        working-directory: src/api-service
+    steps:
+      - uses: actions/checkout@v7
+      - uses: astral-sh/setup-uv@v10
+        with:
+          version: "0.13.6"
+      - run: uv sync --frozen
+      - run: uv run ruff check .
+      - run: uv run ruff format --check .
+      - run: uv run pytest -q
+
+  frontend-react:
+    name: Frontend lint and build
+    runs-on: ubuntu-latest
+    defaults:
+      run:
+        working-directory: src/frontend-react
+    steps:
+      - uses: actions/checkout@v7
+      - uses: actions/setup-node@v7
+        with:
+          node-version: "24.22.1" # the version in its Dockerfile
+          cache: npm
+          cache-dependency-path: src/frontend-react/package-lock.json
+      - run: npm ci
+      - run: npm run check # eslint, prettier, vite build
+
+  deployment:
+    name: Deployment and ML lint
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v7
+      - uses: astral-sh/setup-uv@v10
+        with:
+          version: "0.13.6"
+      - name: Lint the ML containers
+        run: |
+          for service in data-collector data-processor model-training; do
+            (cd "src/${service}" && uvx ruff@0.17.3 check . && uvx ruff@0.17.3 format --check .)
+          done
+      - name: Install the deployment tools
+        working-directory: src/deployment
+        run: uv sync --frozen
+      - name: Lint the scripts and Pulumi programs
+        working-directory: src/deployment
+        run: uv run ./scripts/check.sh
+      - name: Render the Kubernetes YAML
+        working-directory: src/deployment
+        run: |
+          for target in k8s/gke k8s/kind k8s/load-vector-db; do
+            kubectl kustomize "${target}" >/dev/null && echo "${target}: ok"
+          done
+      - name: Compile the ML pipeline
+        working-directory: src/deployment
+        run: >-
+          uv run python ml/pipeline.py --compile-only --bucket ci --service-account ci
+          --collector ci/collector --processor ci/processor --trainer ci/trainer
+
+  images:
+    name: Build ${{ matrix.service }}
+    runs-on: ubuntu-latest
+    strategy:
+      fail-fast: false
+      matrix:
+        service: [api-service, frontend-react, vector-db, data-collector, data-processor, model-training]
+    steps:
+      - uses: actions/checkout@v7
+      - name: Build the production image (not pushed)
+        run: docker build -t "cheese-app-${{ matrix.service }}:ci" "src/${{ matrix.service }}"
