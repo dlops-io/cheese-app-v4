@@ -9,6 +9,13 @@ set -euo pipefail
 cd "$(dirname -- "${BASH_SOURCE[0]}")/.."
 stack="${STACK:-dev}"
 output() { (cd "$1" && pulumi stack output --stack "${stack}" "$2"); }
+# Vertex AI takes name@digest only, not deploy_images' name:tag@digest (Kubernetes takes both)
+image() {
+    local ref name
+    ref="$(output deploy_images "$1")"
+    name="${ref%@*}"
+    echo "${name%:*}@${ref#*@}"
+}
 steps=("$@")
 if [[ ${#steps[@]} -eq 0 ]]; then
     steps=(collect process train)
@@ -20,9 +27,9 @@ fi
 python ml/pipeline.py --steps "${steps[@]}" \
     --bucket "$(output deploy_base ml_bucket)" \
     --service-account "$(output deploy_base app_service_account)" \
-    --collector "$(output deploy_images data_collector_ref)" \
-    --processor "$(output deploy_images data_processor_ref)" \
-    --trainer "$(output deploy_images model_training_ref)" \
+    --collector "$(image data_collector_ref)" \
+    --processor "$(image data_processor_ref)" \
+    --trainer "$(image model_training_ref)" \
     --per-label "${PER_LABEL:-50}" \
     --epochs "${EPOCHS:-10}"
 

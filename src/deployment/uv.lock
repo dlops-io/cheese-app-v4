@@ -149,8 +149,8 @@ dev = [
 
 [package.metadata]
 requires-dist = [
-    { name = "google-cloud-aiplatform", specifier = ">=1.120" },
-    { name = "kfp", specifier = ">=2.14" },
+    { name = "google-cloud-aiplatform", specifier = "==2.9.0" },
+    { name = "kfp", specifier = "==2.18.0" },
     { name = "pulumi", specifier = "==3.272.0" },
     { name = "pulumi-docker-build", specifier = "==0.0.22" },
     { name = "pulumi-gcp", specifier = "==10.2.0" },
