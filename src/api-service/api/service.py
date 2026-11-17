@@ -37,7 +37,8 @@ def cloud_storage_failed(request, error: GoogleAPIError):
 
 @app.get("/api/status")
 def get_status():
-    return {"version": "3.0.0"}
+    # cnn_model: the model that answers Identify, so you can see a newly trained one arrive
+    return {"version": "4.0.0", "cnn_model": llm_cnn_utils.model_version}
 
 
 app.include_router(newsletter.router, prefix="/api/newsletters")

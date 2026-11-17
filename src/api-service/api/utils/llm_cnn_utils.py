@@ -21,13 +21,38 @@ IMAGE_SIZE = [224, 224]
 local_experiments_path = os.path.join(settings.PERSISTENT_DIR, "experiments")
 cnn_model = None
 data_details = None
+model_version = None  # which model answers: a training run's name, or the GitHub experiment's
 
 
-def load_cnn_model() -> None:
-    import tensorflow as tf
+def fetch_from_bucket() -> tuple[str, str] | None:
+    """(run, model path) for the model models/latest names, downloaded once. None before any training."""
+    from google.api_core.exceptions import NotFound
+    from google.cloud import storage
 
-    global cnn_model, data_details
+    bucket_name, _, prefix = settings.CNN_MODEL_DIR.removeprefix("gs://").partition("/")
+    bucket = storage.Client().bucket(bucket_name)
+    prefix = prefix.strip("/") + "/" if prefix.strip("/") else ""
+    try:
+        run = bucket.blob(f"{prefix}latest").download_as_text().strip()
+    except NotFound:
+        print(f"No {settings.CNN_MODEL_DIR}/latest yet: using the model on GitHub")
+        return None
 
+    folder = os.path.join(local_experiments_path, run)
+    model_path = os.path.join(folder, "model.keras")
+    if not os.path.exists(model_path):
+        os.makedirs(folder, exist_ok=True)
+        bucket.blob(f"{prefix}{run}/data_details.json").download_to_filename(
+            os.path.join(folder, "data_details.json")
+        )
+        # Under another name first, so a download cut short is never mistaken for a model
+        bucket.blob(f"{prefix}{run}/model.keras").download_to_filename(model_path + ".part")
+        os.replace(model_path + ".part", model_path)
+    return run, model_path
+
+
+def fetch_from_github() -> tuple[str, str]:
+    """(experiment, model path) for the model we trained for you, downloaded once"""
     experiment_path = os.path.join(local_experiments_path, settings.CNN_EXPERIMENT)
     model_path = os.path.join(experiment_path, settings.CNN_MODEL_FILE)
     if not os.path.exists(model_path):
@@ -36,10 +61,21 @@ def load_cnn_model() -> None:
         urllib.request.urlretrieve(settings.CNN_PACKET_URL, packet_path)
         with zipfile.ZipFile(packet_path) as packet:
             packet.extractall(local_experiments_path)
+    return settings.CNN_EXPERIMENT, model_path
 
-    with open(os.path.join(experiment_path, "data_details.json")) as f:
+
+def load_cnn_model() -> None:
+    import tensorflow as tf
+
+    global cnn_model, data_details, model_version
+
+    found = fetch_from_bucket() if settings.CNN_MODEL_DIR else None
+    version, model_path = found or fetch_from_github()
+    with open(os.path.join(os.path.dirname(model_path), "data_details.json")) as f:
         data_details = json.load(f)
+    model_version = version
     cnn_model = tf.keras.models.load_model(model_path)  # last: /readyz waits for this
+    print(f"CNN model {version} loaded")
 
 
 def make_prediction(image_bytes: bytes) -> dict:

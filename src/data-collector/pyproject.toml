@@ -1,10 +1,24 @@
 [project]
-name = "app"
-version = "0.1.0"
-description = "Add your description here"
-readme = "README.md"
-requires-python = ">=3.12"
+name = "cheese-app-data-collector"
+version = "4.0.0"
+description = "Searches the web for photos of each cheese and saves them to the ML bucket"
+requires-python = ">=3.13,<3.14"
 dependencies = [
-    "beautifulsoup4>=4.14.2",
-    "google-cloud-storage>=3.4.1",
+    "google-cloud-storage>=3.4.0",
+    "pillow>=12.0.0",
 ]
+
+# A command-line tool, not a library: install the dependencies only, never build a wheel of this project.
+[tool.uv]
+package = false
+environments = ["sys_platform == 'linux'"]
+
+[dependency-groups]
+dev = ["ruff==0.17.3"]
+
+[tool.ruff]
+target-version = "py313"
+line-length = 110
+
+[tool.ruff.lint]
+select = ["E", "F", "I", "B", "UP"]

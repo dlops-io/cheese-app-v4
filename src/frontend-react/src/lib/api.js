@@ -2,7 +2,7 @@
 // forwards /api in development and nginx does in production, so there are no addresses here and no
 // CORS. Routes and fields: docs/contract.md.
 
-export const APP_VERSION = '3.0.0' // shown in the footer, so a deploy is visible
+export const APP_VERSION = '4.0.0' // shown in the footer, so a deploy is visible
 
 const SESSION_KEY = 'userSessionId'
 let memorySessionId = null // where localStorage is blocked, the session lasts until a reload

@@ -17,8 +17,9 @@ CHROMADB_PORT = int(os.getenv("CHROMADB_PORT", "8000"))
 PERSISTENT_DIR = os.getenv("PERSISTENT_DIR", "/persistent")
 CHAT_BUCKET = os.getenv("CHAT_BUCKET", "")  # empty: chats stay in PERSISTENT_DIR, for one API on a laptop
 
-# The trained cheese classifier. Downloaded from Github for easy access; after training, this would
-# come from your own GCS bucket.
+# The trained cheese classifier. With CNN_MODEL_DIR (gs://<bucket>/models), the newest model the ML
+# pipeline trained, from models/latest; without it, or before the first training, the model on GitHub.
+CNN_MODEL_DIR = os.getenv("CNN_MODEL_DIR", "")
 CNN_EXPERIMENT = "experiment_1760994796"
 CNN_MODEL_FILE = "mobilenetv2_train_base_True.keras"
 CNN_PACKET_URL = f"https://github.com/dlops-io/models/releases/download/v4.0/{CNN_EXPERIMENT}.zip"

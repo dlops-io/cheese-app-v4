@@ -15,6 +15,7 @@ data:
   # deploy-k8s.sh fills these in for your project
   GCP_PROJECT: ""
   CHAT_BUCKET: ""
+  CNN_MODEL_DIR: "" # empty: the model on GitHub
 ---
 apiVersion: apps/v1
 kind: Deployment

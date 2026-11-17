@@ -38,6 +38,7 @@ configMapGenerator:
     literals:
       - GCP_PROJECT=${GCP_PROJECT}
       - CHAT_BUCKET=$(output deploy_base chat_bucket)
+      - CNN_MODEL_DIR=gs://$(output deploy_base ml_bucket)/models
 generatorOptions:
   disableNameSuffixHash: true
 patches:

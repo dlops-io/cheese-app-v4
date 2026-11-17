@@ -4,6 +4,8 @@ version = "3.0.0"
 description = "Cheese App deployment tooling: Pulumi programs for the cloud, scripts for the workloads"
 requires-python = ">=3.14,<3.15"
 dependencies = [
+    "google-cloud-aiplatform==2.9.0",
+    "kfp==2.18.0",
     "pulumi==3.272.0",
     "pulumi-docker-build==0.0.22",
     "pulumi-gcp==10.2.0",

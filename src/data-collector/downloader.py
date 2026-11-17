@@ -1,185 +1,61 @@
-import os
-import sys
-import shutil
-from pathlib import Path
-import urllib.request
-import urllib
-import imghdr
-import posixpath
+"""Downloads photos from Bing's image search.
+
+Bing does not offer this as an API: we read the page its image search loads, the way a browser does.
+When Bing changes that page, this file is the one to fix.
+"""
+
+import io
 import re
 import time
+import urllib.parse
+import urllib.request
+from pathlib import Path
+
+from PIL import Image
+
+HEADERS = {
+    "User-Agent": "Mozilla/5.0 (X11; Linux x86_64) AppleWebKit/537.36 (KHTML, like Gecko) "
+    "Chrome/120.0 Safari/537.36"
+}
+PAGE_SIZE = 35  # results Bing returns per page
+MAX_PAGES = 20  # stop looking after this many pages, even if we have too few photos
 
 
-class Bing:
-    def __init__(
-        self, query, limit, output_dir, adult, timeout, filter="", verbose=True
-    ):
-        self.download_count = 0
-        self.query = query
-        self.output_dir = output_dir
-        self.adult = adult
-        self.filter = filter
-        self.verbose = verbose
-        self.seen = set()
-
-        assert type(limit) == int, "limit must be integer"
-        self.limit = limit
-        assert type(timeout) == int, "timeout must be integer"
-        self.timeout = timeout
-
-        # self.headers = {'User-Agent': 'Mozilla/5.0 (X11; Fedora; Linux x86_64; rv:60.0) Gecko/20100101 Firefox/60.0'}
-        self.page_counter = 0
-        self.headers = {
-            "User-Agent": "Mozilla/5.0 (X11; Linux x86_64) "
-            "AppleWebKit/537.11 (KHTML, like Gecko) "
-            "Chrome/23.0.1271.64 Safari/537.11",
-            "Accept": "text/html,application/xhtml+xml,application/xml;q=0.9,*/*;q=0.8",
-            "Accept-Charset": "ISO-8859-1,utf-8;q=0.7,*;q=0.3",
-            "Accept-Encoding": "none",
-            "Accept-Language": "en-US,en;q=0.8",
-            "Connection": "keep-alive",
-        }
-
-    def get_filter(self, shorthand):
-        if shorthand == "line" or shorthand == "linedrawing":
-            return "+filterui:photo-linedrawing"
-        elif shorthand == "photo":
-            return "+filterui:photo-photo"
-        elif shorthand == "clipart":
-            return "+filterui:photo-clipart"
-        elif shorthand == "gif" or shorthand == "animatedgif":
-            return "+filterui:photo-animatedgif"
-        elif shorthand == "transparent":
-            return "+filterui:photo-transparent"
-        else:
-            return ""
-
-    def save_image(self, link, file_path):
-        request = urllib.request.Request(link, None, self.headers)
-        image = urllib.request.urlopen(request, timeout=self.timeout).read()
-        if not imghdr.what(None, image):
-            print("[Error]Invalid image, not saving {}\n".format(link))
-            raise ValueError("Invalid image, not saving {}\n".format(link))
-        with open(str(file_path), "wb") as f:
-            f.write(image)
-
-    def download_image(self, link):
-        self.download_count += 1
-        # Get the image link
-        try:
-            path = urllib.parse.urlsplit(link).path
-            filename = posixpath.basename(path).split("?")[0]
-            file_type = filename.split(".")[-1]
-            if file_type.lower() not in [
-                "jpe",
-                "jpeg",
-                "jfif",
-                "exif",
-                "tiff",
-                "gif",
-                "bmp",
-                "png",
-                "webp",
-                "jpg",
-            ]:
-                file_type = "jpg"
-
-            if self.verbose:
-                # Download the image
-                print(
-                    "[%] Downloading Image #{} from {}".format(
-                        self.download_count, link
-                    )
-                )
-
-            self.save_image(
-                link,
-                self.output_dir.joinpath(
-                    "Image_{}.{}".format(str(self.download_count), file_type)
-                ),
-            )
-            if self.verbose:
-                print("[%] File Downloaded !\n")
-
-        except Exception as e:
-            self.download_count -= 1
-            print("[!] Issue getting: {}\n[!] Error:: {}".format(link, e))
-
-    def run(self):
-        while self.download_count < self.limit:
-            if self.verbose:
-                print("\n\n[!!]Indexing page: {}\n".format(self.page_counter + 1))
-            # Parse the page source and download pics
-            request_url = (
-                "https://www.bing.com/images/async?q="
-                + urllib.parse.quote_plus(self.query)
-                + "&first="
-                + str(self.page_counter)
-                + "&count="
-                + str(self.limit)
-                + "&adlt="
-                + self.adult
-                + "&qft="
-                + ("" if self.filter is None else self.get_filter(self.filter))
-            )
-            request = urllib.request.Request(request_url, None, headers=self.headers)
-            response = urllib.request.urlopen(request)
-            html = response.read().decode("utf8")
-            if html == "":
-                print("[%] No more images are available")
-                break
-            links = re.findall("murl&quot;:&quot;(.*?)&quot;", html)
-            if self.verbose:
-                print(
-                    "[%] Indexed {} Images on Page {}.".format(
-                        len(links), self.page_counter + 1
-                    )
-                )
-                print("\n===============================================\n")
-
-            for link in links:
-                if self.download_count < self.limit and link not in self.seen:
-                    self.seen.add(link)
-                    self.download_image(link)
-
-            self.page_counter += 1
-
-            # Sleep
-            time.sleep(1)
-        print("\n\n[%] Done. Downloaded {} images.".format(self.download_count))
+def fetch(url: str, timeout: int = 20) -> bytes:
+    request = urllib.request.Request(url, headers=HEADERS)
+    with urllib.request.urlopen(request, timeout=timeout) as response:
+        return response.read()
 
 
-def download_bing_images(
-    query,
-    limit=10,
-    output_dir="dataset",
-    adult_filter_off=True,
-    force_replace=False,
-    timeout=60,
-    filter="",
-    verbose=True,
-):
-    # engine = 'bing'
-    if adult_filter_off:
-        adult = "off"
-    else:
-        adult = "on"
+def image_links(query: str, first: int) -> list[str]:
+    """The photo addresses on one page of results, starting at result number `first`"""
+    params = {"q": query, "first": first, "count": PAGE_SIZE, "adlt": "strict"}
+    html = fetch("https://www.bing.com/images/async?" + urllib.parse.urlencode(params))
+    return re.findall(r"murl&quot;:&quot;(.*?)&quot;", html.decode("utf-8", "replace"))
 
-    image_dir = Path(output_dir).joinpath(query).absolute()
 
-    if force_replace:
-        if Path.isdir(image_dir):
-            shutil.rmtree(image_dir)
-
-    # check directory and create if necessary
-    try:
-        if not Path.is_dir(image_dir):
-            Path.mkdir(image_dir, parents=True)
-
-    except Exception as e:
-        print("[Error]Failed to create directory.", e)
-        sys.exit(1)
-
-    print("[%] Downloading Images to {}".format(str(image_dir.absolute())))
-    bing = Bing(query, limit, image_dir, adult, timeout, filter, verbose)
-    bing.run()
+def download_images(query: str, folder: Path, limit: int) -> int:
+    """Saves up to `limit` photos for `query` in `folder`. Returns how many it saved."""
+    folder.mkdir(parents=True, exist_ok=True)
+    seen: set[str] = set()
+    saved = 0
+    for page in range(MAX_PAGES):
+        links = [link for link in image_links(query, page * PAGE_SIZE) if link not in seen]
+        if not links:
+            break
+        for link in links:
+            if saved >= limit:
+                return saved
+            seen.add(link)
+            try:
+                data = fetch(link)
+                with Image.open(io.BytesIO(data)) as image:  # only keep what really is an image
+                    image_format = (image.format or "jpeg").lower()
+                    image.verify()
+            except Exception as error:  # dead links, timeouts, HTML pages: skip them
+                print(f"  skipped {link[:70]}: {error}")
+                continue
+            saved += 1
+            (folder / f"{saved:03d}.{image_format}").write_bytes(data)
+        time.sleep(1)  # be polite to Bing
+    return saved

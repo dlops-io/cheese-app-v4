@@ -38,6 +38,9 @@ else
     -v "$BASE_DIR/../api-service":/api-service \
     -v "$BASE_DIR/../frontend-react":/frontend-react \
     -v "$BASE_DIR/../vector-db":/vector-db \
+    -v "$BASE_DIR/../data-collector":/data-collector \
+    -v "$BASE_DIR/../data-processor":/data-processor \
+    -v "$BASE_DIR/../model-training":/model-training \
     -e GOOGLE_APPLICATION_CREDENTIALS=$GOOGLE_APPLICATION_CREDENTIALS \
     -e GCP_PROJECT=$GCP_PROJECT \
     -e GCP_REGION=$GCP_REGION \

@@ -17,7 +17,8 @@ function Footer() {
       <div className="mx-auto flex max-w-6xl flex-wrap justify-between gap-x-6 gap-y-1 px-4 py-7 text-sm text-muted md:px-6">
         <p>Formaggio is a demonstration app from AC215 at Harvard University.</p>
         <p>
-          Frontend {APP_VERSION} · API {status?.version ?? 'unknown'}
+          Frontend {APP_VERSION} · API {status?.version ?? 'unknown'} · Model{' '}
+          {status?.cnn_model ?? 'loading'}
         </p>
       </div>
     </footer>

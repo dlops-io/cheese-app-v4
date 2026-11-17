@@ -20,7 +20,7 @@ gateway_ip = gcp.compute.GlobalAddress(
     labels=labels,
 )
 
-# Where the images go: api-service, frontend-react and vector-db-cli
+# Where the images go: the app's three and the ML pipeline's three
 registry = gcp.artifactregistry.Repository(
     f"{app_name}-registry",
     repository_id=app_name,
@@ -46,6 +46,24 @@ gcp.storage.BucketIAMMember(
     member=f"serviceAccount:{app_service_account}",
 )
 
+# The ML pipeline's bucket: its photos (raw.zip, clean.zip), the models it trains (models/<run>/, with
+# models/latest naming the newest) and Vertex AI's working files (pipeline-root/). The pipeline's steps
+# run as the app's service account, and the API reads the models with it.
+ml_bucket = gcp.storage.Bucket(
+    f"{app_name}-ml",
+    name=f"{project}-{app_name}-ml",
+    location=region,
+    uniform_bucket_level_access=True,
+    force_destroy=True,  # `pulumi destroy` here removes the photos and models too
+    labels=labels,
+)
+gcp.storage.BucketIAMMember(
+    f"{app_name}-ml-access",
+    bucket=ml_bucket.name,
+    role="roles/storage.objectAdmin",
+    member=f"serviceAccount:{app_service_account}",
+)
+
 # Export values
 pulumi.export("gateway_ip", gateway_ip.address)
 pulumi.export("gateway_ip_name", gateway_ip.name)
@@ -53,4 +71,5 @@ pulumi.export(
     "registry", pulumi.Output.concat(region, "-docker.pkg.dev/", project, "/", registry.repository_id)
 )
 pulumi.export("chat_bucket", chat_bucket.name)
+pulumi.export("ml_bucket", ml_bucket.name)
 pulumi.export("app_service_account", app_service_account)

@@ -4,7 +4,7 @@ from api.utils import llm_rag_utils
 
 def test_docs_are_served_under_api(client):
     assert client.get("/api/docs").status_code == 200
-    assert client.get("/api/status").json() == {"version": "3.0.0"}
+    assert client.get("/api/status").json() == {"version": "4.0.0", "cnn_model": None}
 
 
 def test_newsletters_need_no_redirect(client):

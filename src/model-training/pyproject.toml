@@ -1,0 +1,26 @@
+[project]
+name = "cheese-app-model-training"
+version = "4.0.0"
+description = "Fine-tunes MobileNetV2 on the cleaned photos and saves the model to the ML bucket"
+requires-python = ">=3.13,<3.14"
+dependencies = [
+    "google-cloud-storage>=3.4.0",
+    # The CPU build is smaller, but it has no Linux arm64 wheel, which is what Apple silicon runs
+    "tensorflow-cpu==2.21.0; platform_machine == 'x86_64'",
+    "tensorflow==2.21.0; platform_machine == 'aarch64'",
+]
+
+# A command-line tool, not a library: install the dependencies only, never build a wheel of this project.
+[tool.uv]
+package = false
+environments = ["sys_platform == 'linux'"]
+
+[dependency-groups]
+dev = ["ruff==0.17.3"]
+
+[tool.ruff]
+target-version = "py313"
+line-length = 110
+
+[tool.ruff.lint]
+select = ["E", "F", "I", "B", "UP"]

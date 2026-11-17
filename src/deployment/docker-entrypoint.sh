@@ -41,6 +41,7 @@ On your laptop (kind):
     ./scripts/verify-kind.sh            rehearse the whole tutorial on a new cluster, about 12 minutes
     ./scripts/delete-cluster-kind.sh    delete the cluster
 On GCP: deploy_base, deploy_images and deploy_k8s, then ./scripts/deploy-k8s.sh
+    ./scripts/run-ml-pipeline.sh        collect photos, clean them and train the model on Vertex AI
 \033[0m
 "
     exec /bin/bash
