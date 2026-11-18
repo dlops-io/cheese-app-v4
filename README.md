@@ -35,7 +35,7 @@ uses:
   little, so delete the cluster when you are done.
 
 ## Tutorial: Setup
-Do this once.
+Do this just once.
 
 ### Your own copy of the repository
 GitHub runs the workflows in your repository, with your key, so you need your own copy:
